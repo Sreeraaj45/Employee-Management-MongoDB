@@ -17,6 +17,10 @@ This document outlines the requirements for migrating an employee management sys
 - **Migration Script**: Automated script to transfer data from Supabase to MongoDB
 - **Service Layer**: Backend API endpoints that replace direct database access
 - **Client Application**: React/TypeScript frontend application
+- **Admin Role**: Full system access including user management and bulk operations
+- **Lead Role**: Access to employees, projects, financial data, and reports
+- **HR Role**: Access to employees, projects, and reports (no financial data)
+- **Delivery Team Role**: Limited access focused on project delivery and team management
 
 ## Requirements
 
@@ -34,15 +38,16 @@ This document outlines the requirements for migrating an employee management sys
 
 ### Requirement 2
 
-**User Story:** As a developer, I want to replace Supabase authentication with a custom JWT-based authentication system, so that users can continue to log in securely.
+**User Story:** As a developer, I want to replace Supabase authentication with a custom JWT-based authentication system, so that users can continue to log in securely with support for four role types.
 
 #### Acceptance Criteria
 
 1. WHEN a user submits login credentials, THE System SHALL verify credentials against MongoDB user_profiles collection
-2. WHEN credentials are valid, THE System SHALL generate a JWT token containing user ID and role
+2. WHEN credentials are valid, THE System SHALL generate a JWT token containing user ID and role (Admin, Lead, HR, or Delivery Team)
 3. WHEN a JWT token is generated, THE System SHALL return it to the client with appropriate expiration time
 4. WHEN a client makes an authenticated request, THE System SHALL validate the JWT token
 5. WHEN a JWT token is invalid or expired, THE System SHALL return an authentication error
+6. WHEN a user password is hashed, THE System SHALL use bcrypt with appropriate salt rounds for security
 
 ### Requirement 3
 
@@ -76,21 +81,25 @@ This document outlines the requirements for migrating an employee management sys
 
 1. WHEN defining the Employee schema, THE System SHALL include all fields from the current employees table
 2. WHEN defining the Project schema, THE System SHALL include all fields from the current projects table
-3. WHEN defining relationships, THE System SHALL use MongoDB ObjectId references for one-to-many and many-to-many relationships
-4. WHEN defining the EmployeeProject schema, THE System SHALL maintain the junction table pattern for employee-project assignments
-5. WHEN defining schemas, THE System SHALL include appropriate indexes for query performance
+3. WHEN defining the UserProfile schema, THE System SHALL support four role types (Admin, Lead, HR, Delivery Team)
+4. WHEN defining relationships, THE System SHALL use MongoDB ObjectId references for one-to-many and many-to-many relationships
+5. WHEN defining the EmployeeProject schema, THE System SHALL maintain the junction table pattern for employee-project assignments
+6. WHEN defining schemas, THE System SHALL include appropriate indexes for query performance
 
 ### Requirement 6
 
-**User Story:** As a developer, I want to implement role-based access control in the API layer, so that security is maintained without Supabase RLS.
+**User Story:** As a developer, I want to implement role-based access control in the API layer with four distinct role types, so that security is maintained without Supabase RLS.
 
 #### Acceptance Criteria
 
 1. WHEN a user makes a request, THE System SHALL extract the user role from the JWT token
-2. WHEN processing employee operations, THE System SHALL allow Admin, Lead, and HR roles to perform CRUD operations
-3. WHEN processing project operations, THE System SHALL allow Admin and Lead roles to perform CRUD operations
-4. WHEN processing user management operations, THE System SHALL allow only Admin role to perform CRUD operations
-5. WHEN a user lacks required permissions, THE System SHALL return a 403 Forbidden error
+2. WHEN processing employee operations, THE System SHALL allow Admin, Lead, HR, and Delivery Team roles to view employees
+3. WHEN processing employee create/update operations, THE System SHALL allow Admin, Lead, HR, and Delivery Team roles to perform these operations
+4. WHEN processing employee delete operations, THE System SHALL allow only Admin and Delivery Team roles to perform deletions
+5. WHEN processing project operations, THE System SHALL allow Admin, Lead, HR, and Delivery Team roles to perform CRUD operations
+6. WHEN processing financial data requests, THE System SHALL allow only Admin and Lead roles to access financial information
+7. WHEN processing user management operations, THE System SHALL allow only Admin role to perform CRUD operations
+8. WHEN a user lacks required permissions, THE System SHALL return a 403 Forbidden error
 
 ### Requirement 7
 
@@ -139,3 +148,15 @@ This document outlines the requirements for migrating an employee management sys
 3. WHEN API responses are received, THE System SHALL transform data to match existing TypeScript interfaces
 4. WHEN implementing EmployeeService, THE System SHALL replace all Supabase queries with API calls
 5. WHEN implementing ProjectService and NotificationService, THE System SHALL replace all Supabase queries with API calls
+
+### Requirement 11
+
+**User Story:** As a user, I want to see a dashboard appropriate to my role, so that I can access the features and data relevant to my responsibilities.
+
+#### Acceptance Criteria
+
+1. WHEN an Admin user logs in, THE System SHALL display a dashboard with access to all features including user management and bulk upload
+2. WHEN a Lead user logs in, THE System SHALL display a dashboard with access to employees, projects, financial data, and reports
+3. WHEN an HR user logs in, THE System SHALL display a dashboard with access to employees, projects, and reports but not financial data
+4. WHEN a Delivery Team user logs in, THE System SHALL display a dashboard with access to employees, projects, and team management features
+5. WHEN a user attempts to access a restricted feature, THE System SHALL display an access denied message,(first thing do not even show tj=hose to other users)

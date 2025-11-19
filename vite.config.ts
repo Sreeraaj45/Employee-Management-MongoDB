@@ -21,4 +21,12 @@ export default defineConfig({
     // ✅ ADD: Better chunking strategy
     chunkSizeWarningLimit: 1000,
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
+  },
 });
