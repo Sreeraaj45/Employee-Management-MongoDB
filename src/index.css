@@ -1,0 +1,343 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* SweetAlert2 Custom Styles */
+.swal2-popup-custom {
+  @apply border border-gray-200 shadow-xl;
+  border-radius: 4px !important;
+  font-family: inherit;
+  padding: 1.5rem !important;
+  margin: 1rem !important;
+  max-width: 90vw !important;
+  width: auto !important;
+  min-width: 300px !important;
+}
+
+@media (max-width: 640px) {
+  .swal2-popup-custom {
+    margin: 0.5rem !important;
+    padding: 1rem !important;
+    min-width: 280px !important;
+    max-width: 95vw !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .swal2-popup-custom {
+    max-width: 500px !important;
+    min-width: 400px !important;
+  }
+}
+
+.swal2-title-custom {
+  @apply text-xl font-semibold text-gray-900;
+  margin-bottom: 0.75rem !important;
+  padding: 0 !important;
+}
+
+@media (max-width: 640px) {
+  .swal2-title-custom {
+    @apply text-lg;
+    margin-bottom: 0.5rem !important;
+  }
+}
+
+.swal2-content-custom {
+  @apply text-gray-700;
+  margin-bottom: 1.5rem !important;
+  padding: 0 !important;
+  line-height: 1.5 !important;
+}
+
+@media (max-width: 640px) {
+  .swal2-content-custom {
+    margin-bottom: 1rem !important;
+    @apply text-sm;
+  }
+}
+
+.swal2-confirm-custom {
+  @apply font-medium transition-all duration-200;
+  border-radius: 4px !important;
+  padding: 0.75rem 1.5rem !important;
+  margin: 0.25rem !important;
+  border: 2px solid transparent !important;
+  min-width: 100px !important;
+}
+
+.swal2-cancel-custom {
+  @apply font-medium transition-all duration-200;
+  border-radius: 4px !important;
+  padding: 0.75rem 1.5rem !important;
+  margin: 0.25rem !important;
+  border: 2px solid transparent !important;
+  min-width: 100px !important;
+}
+
+.swal2-deny-custom {
+  @apply font-medium transition-all duration-200;
+  border-radius: 4px !important;
+  padding: 0.75rem 1.5rem !important;
+  margin: 0.25rem !important;
+  border: 2px solid transparent !important;
+  min-width: 100px !important;
+}
+
+@media (max-width: 640px) {
+  .swal2-confirm-custom,
+  .swal2-cancel-custom,
+  .swal2-deny-custom {
+    padding: 0.625rem 1.25rem !important;
+    min-width: 80px !important;
+    @apply text-sm;
+  }
+}
+
+/* SweetAlert2 Button Colors */
+.swal2-confirm-custom.swal2-confirm {
+  @apply bg-blue-600 text-white hover:bg-blue-700 focus:bg-blue-700;
+  border-color: #2563eb !important;
+}
+
+.swal2-confirm-custom.swal2-confirm:hover {
+  border-color: #1d4ed8 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.swal2-confirm-custom.swal2-confirm:focus {
+  outline: none !important;
+  border-color: #1d4ed8 !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.swal2-cancel-custom.swal2-cancel {
+  @apply bg-gray-200 text-gray-800 hover:bg-gray-300 focus:bg-gray-300;
+  border-color: #e5e7eb !important;
+}
+
+.swal2-cancel-custom.swal2-cancel:hover {
+  border-color: #d1d5db !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.swal2-cancel-custom.swal2-cancel:focus {
+  outline: none !important;
+  border-color: #d1d5db !important;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+}
+
+.swal2-deny-custom.swal2-deny {
+  @apply bg-red-600 text-white hover:bg-red-700 focus:bg-red-700;
+  border-color: #dc2626 !important;
+}
+
+.swal2-deny-custom.swal2-deny:hover {
+  border-color: #b91c1c !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+.swal2-deny-custom.swal2-deny:focus {
+  outline: none !important;
+  border-color: #b91c1c !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+/* SweetAlert2 Actions Container */
+.swal2-actions {
+  margin-top: 1.5rem !important;
+  gap: 0.75rem !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+}
+
+@media (max-width: 640px) {
+  .swal2-actions {
+    margin-top: 1rem !important;
+    gap: 0.5rem !important;
+    flex-direction: column !important;
+  }
+  
+  .swal2-actions .swal2-confirm-custom,
+  .swal2-actions .swal2-cancel-custom,
+  .swal2-actions .swal2-deny-custom {
+    width: 100% !important;
+    margin: 0.125rem 0 !important;
+  }
+}
+
+/* SweetAlert2 Toast Styles */
+.swal2-toast {
+  border-radius: 4px !important;
+  border: 1px solid #e5e7eb !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+  padding: 1rem !important;
+  margin: 0.5rem !important;
+  max-width: 400px !important;
+}
+
+@media (max-width: 640px) {
+  .swal2-toast {
+    max-width: 90vw !important;
+    padding: 0.75rem !important;
+    margin: 0.25rem !important;
+  }
+}
+
+.swal2-toast.swal2-show {
+  @apply bg-white;
+}
+
+.swal2-toast .swal2-title {
+  @apply text-sm font-medium text-gray-900;
+  margin-bottom: 0.25rem !important;
+}
+
+.swal2-toast .swal2-content {
+  @apply text-xs text-gray-600;
+  margin: 0 !important;
+}
+
+/* SweetAlert2 Loading Spinner */
+.swal2-loader {
+  border-color: #2563eb !important;
+  border-top-color: transparent !important;
+  width: 2.5rem !important;
+  height: 2.5rem !important;
+  margin: 1rem auto !important;
+}
+
+@media (max-width: 640px) {
+  .swal2-loader {
+    width: 2rem !important;
+    height: 2rem !important;
+    margin: 0.75rem auto !important;
+  }
+}
+
+/* SweetAlert2 Icon Styling */
+.swal2-icon {
+  margin: 1rem auto 0.75rem !important;
+  width: 4rem !important;
+  height: 4rem !important;
+}
+
+@media (max-width: 640px) {
+  .swal2-icon {
+    width: 3rem !important;
+    height: 3rem !important;
+    margin: 0.75rem auto 0.5rem !important;
+  }
+}
+
+.swal2-icon.swal2-success {
+  border-color: #16a34a !important;
+  color: #16a34a !important;
+}
+
+/* Custom Professional Success Icon - Now handled via HTML in sweetAlert.ts */
+
+.swal2-icon.swal2-error {
+  border-color: #dc2626 !important;
+  color: #dc2626 !important;
+}
+
+.swal2-icon.swal2-warning {
+  border-color: #ea580c !important;
+  color: #ea580c !important;
+}
+
+.swal2-icon.swal2-info {
+  border-color: #0891b2 !important;
+  color: #0891b2 !important;
+}
+
+.swal2-icon.swal2-question {
+  border-color: #2563eb !important;
+  color: #2563eb !important;
+}
+
+/* SweetAlert2 Close Button */
+.swal2-close {
+  border-radius: 4px !important;
+  width: 2rem !important;
+  height: 2rem !important;
+  font-size: 1.25rem !important;
+  color: #6b7280 !important;
+  transition: all 0.2s ease !important;
+}
+
+.swal2-close:hover {
+  color: #374151 !important;
+  background-color: #f3f4f6 !important;
+}
+
+.swal2-close:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* SweetAlert2 HTML Container */
+.swal2-html-container {
+  margin: 0.75rem 0 !important;
+  padding: 0 !important;
+}
+
+@media (max-width: 640px) {
+  .swal2-html-container {
+    margin: 0.5rem 0 !important;
+  }
+}
+
+/* Skeleton Loading Styles */
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: skeleton-pulse 0.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 0.6s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Enhanced skeleton loading for better visual feedback */
+.skeleton-table-row {
+  transition: opacity 0.3s ease-in-out;
+}
+
+.skeleton-table-row:hover {
+  opacity: 0.8;
+}
+
+/* Responsive skeleton adjustments */
+@media (max-width: 640px) {
+  .skeleton-mobile {
+    animation-duration: 0.6s;
+  }
+}
+
+/* Tailwind doesn’t support clip-path-triangle natively */
+.clip-path-triangle {
+  clip-path: polygon(50% 100%, 0 0, 100% 0);
+}
