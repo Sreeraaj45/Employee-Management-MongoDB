@@ -108,11 +108,21 @@ export const SimpleAddEmployee: React.FC<SimpleAddEmployeeProps> = ({ onClose, o
                 );
                 
                 if (oldProject) {
-                  await ProjectApi.removeEmployeeFromProject(oldProject._id || oldProject.id || '', employee.id);
-                  console.log(`Removed employee ${employee.name} from old project ${employee.client} - ${employee.projects}`);
+                  const projectId = oldProject._id || oldProject.id;
+                  if (projectId && projectId !== 'undefined') {
+                    try {
+                      await ProjectApi.removeEmployeeFromProject(projectId, employee.id);
+                      console.log(`Removed employee ${employee.name} from old project ${employee.client} - ${employee.projects}`);
+                    } catch (removeError: any) {
+                      // Ignore 404 errors - employee might not be assigned
+                      if (!removeError.message?.includes('not assigned')) {
+                        console.warn(`Failed to remove employee from old project:`, removeError);
+                      }
+                    }
+                  }
                 }
               } catch (error) {
-                console.warn(`Failed to remove employee from old project: ${error}`);
+                console.warn(`Failed to process old project removal:`, error);
               }
             } else {
               // User chose to keep in both projects - still update billability status to Billable

@@ -5,7 +5,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { useDropdownOptions } from '../../hooks/useDropdownOptions';
 import { EmployeeService } from '../../lib/employeeService';
 import { useProjects } from '../../hooks/useProjects';
-import { AmendPODialog } from '../Projects/AmendPODialog'; 
+import { AmendPODialog } from '../Projects/AmendPODialog';
+import { formatDateForInput } from '../../lib/dateUtils'; 
 
 
 interface EmployeeFormProps {
@@ -638,7 +639,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee, onSave, on
               <input
                 type="date"
                 // required
-                value={formData.joiningDate}
+                value={formatDateForInput(formData.joiningDate)}
                 onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
@@ -873,7 +874,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee, onSave, on
             </label>
             <input
               type="date"
-              value={formData.lastActiveDate}
+              value={formatDateForInput(formData.lastActiveDate)}
               onChange={(e) => setFormData({ ...formData, lastActiveDate: e.target.value })}
               className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
             />
@@ -1052,7 +1053,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee, onSave, on
                   </label>
                   <input
                     type="date"
-                    value={newProjectAssignment.startDate}
+                    value={formatDateForInput(newProjectAssignment.startDate)}
                     onChange={(e) => setNewProjectAssignment({ ...newProjectAssignment, startDate: e.target.value })}
                     className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                   />
@@ -1064,7 +1065,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee, onSave, on
                   </label>
                   <input
                     type="date"
-                    value={newProjectAssignment.endDate}
+                    value={formatDateForInput(newProjectAssignment.endDate)}
                     onChange={(e) => setNewProjectAssignment({ ...newProjectAssignment, endDate: e.target.value })}
                     className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                   />
@@ -1237,7 +1238,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee, onSave, on
                                 </label>
                                 <input
                                   type="date"
-                                  value={editProjectAssignment.startDate}
+                                  value={formatDateForInput(editProjectAssignment.startDate)}
                                   onChange={(e) => setEditProjectAssignment({ ...editProjectAssignment, startDate: e.target.value })}
                                   className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                                 />
@@ -1249,7 +1250,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee, onSave, on
                                 </label>
                                 <input
                                   type="date"
-                                  value={editProjectAssignment.endDate}
+                                  value={formatDateForInput(editProjectAssignment.endDate)}
                                   onChange={(e) => setEditProjectAssignment({ ...editProjectAssignment, endDate: e.target.value })}
                                   className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
                                 />
@@ -1437,7 +1438,7 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee, onSave, on
             </label>
             <input
               type="date"
-              value={formData.dateOfSeparation}
+              value={formatDateForInput(formData.dateOfSeparation)}
               onChange={(e) => setFormData({ ...formData, dateOfSeparation: e.target.value })}
               className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
             />

@@ -43,17 +43,26 @@ export class ProjectService {
     try {
       const { ProjectApi } = await import('./api/projectApi');
       const projects = await ProjectApi.getAllProjects();
-      return projects.map(p => ({
-        id: p._id || p.id || '',
-        name: p.name,
-        client: p.client,
-        start_date: p.start_date,
-        end_date: p.end_date || null,
-        status: p.status,
-        team_size: p.team_size || 0,
-        department: p.department,
-        po_number: p.po_number || null
-      }));
+      console.log(`📋 Raw projects from API:`, projects.slice(0, 2)); // Log first 2 projects
+      const mapped = projects.map(p => {
+        const id = p._id || p.id || '';
+        if (!id) {
+          console.warn('⚠️ Project without ID:', p);
+        }
+        return {
+          id,
+          name: p.name,
+          client: p.client,
+          start_date: p.start_date,
+          end_date: p.end_date || null,
+          status: p.status,
+          team_size: p.team_size || 0,
+          department: p.department,
+          po_number: p.po_number || null
+        };
+      });
+      console.log(`📋 Mapped projects:`, mapped.slice(0, 2)); // Log first 2 mapped projects
+      return mapped;
     } catch (error) {
       console.error('Error fetching projects:', error);
       return [];
@@ -102,6 +111,21 @@ export class ProjectService {
       // Get all projects from MongoDB
       const projects = await this.getAllProjects();
       
+      // Get employee counts for each project
+      const { ProjectApi } = await import('./api/projectApi');
+      const employeeCountPromises = projects.map(async (project) => {
+        try {
+          const employees = await ProjectApi.getProjectEmployees(project.id);
+          return { projectId: project.id, count: employees.length };
+        } catch (error) {
+          console.warn(`Failed to get employee count for project ${project.id}:`, error);
+          return { projectId: project.id, count: 0 };
+        }
+      });
+      
+      const employeeCounts = await Promise.all(employeeCountPromises);
+      const employeeCountMap = new Map(employeeCounts.map(ec => [ec.projectId, ec.count]));
+      
       // Group projects by client
       const clientMap = new Map<string, ClientWithProjects>();
       
@@ -114,13 +138,16 @@ export class ProjectService {
           });
         }
         
+        const employeeCount = employeeCountMap.get(project.id) || 0;
         const clientData = clientMap.get(project.client)!;
+        clientData.totalEmployees = (clientData.totalEmployees || 0) + employeeCount;
+        
         clientData.projects.push({
           id: project.id,
           name: project.name,
           status: project.status,
-          teamSize: project.team_size || 0,
-          employeeCount: project.team_size || 0,
+          teamSize: employeeCount,
+          employeeCount: employeeCount,
           poNumber: project.po_number || null
         });
       }
@@ -323,10 +350,53 @@ export class ProjectService {
   */
 
   static async getProjectEmployees(projectId: string): Promise<Employee[]> {
-    // TODO: Implement with MongoDB API when employee-project relationships are migrated
-    // For now, return empty array
-    console.warn('getProjectEmployees not yet migrated to MongoDB - employee-project relationships not implemented');
-    return [];
+    try {
+      const { ProjectApi } = await import('./api/projectApi');
+      const employees = await ProjectApi.getProjectEmployees(projectId);
+      
+      console.log(`📋 Fetched ${employees.length} employees for project ${projectId}`);
+      console.log('Raw employee data:', employees);
+      
+      // Map to Employee format
+      return employees.map((emp: any) => ({
+        id: emp._id || emp.id,
+        sNo: emp.s_no,
+        employeeId: emp.employee_id,
+        name: emp.name,
+        email: emp.email || '',
+        department: emp.department || '',
+        designation: emp.designation || '',
+        modeOfManagement: emp.mode_of_management || '',
+        client: emp.client || '',
+        billabilityStatus: emp.billability_status || '',
+        poNumber: emp.po_number || '',
+        billing: emp.billing_type || emp.billing || '',
+        lastActiveDate: emp.last_active_date || '',
+        projects: emp.projects || '',
+        billabilityPercentage: emp.billability_percentage || 0,
+        projectStartDate: emp.start_date || emp.project_start_date || '',
+        projectEndDate: emp.end_date || emp.project_end_date || '',
+        experienceBand: emp.experience_band || '',
+        rate: emp.billing_rate || emp.rate || 0,
+        ageing: emp.ageing || 0,
+        benchDays: emp.bench_days || 0,
+        phoneNumber: emp.phone_number || '',
+        emergencyContact: emp.emergency_contact || '',
+        ctc: emp.ctc || 0,
+        remarks: emp.remarks || '',
+        lastModifiedBy: emp.last_modified_by || '',
+        lastUpdated: emp.updated_at,
+        position: emp.position || '',
+        joiningDate: emp.joining_date || '',
+        location: emp.location || '',
+        manager: emp.manager || '',
+        skills: emp.skills || [],
+        dateOfSeparation: emp.date_of_separation || ''
+      }));
+    } catch (error) {
+      console.error('Error fetching project employees:', error);
+      return [];
+    }
     
     /* OLD SUPABASE CODE - TO BE MIGRATED
     const { data: project, error: pErr } = await supabase
@@ -585,94 +655,77 @@ export class ProjectService {
 }
 
   static async createProject(input: { name: string; client: string; start_date?: string; end_date?: string | null; status?: string; po_number?: string | null; budget?: number | null; }): Promise<{ id: string }> {
-    const { data, error } = await supabase
-      .from('projects')
-      .insert({
+    try {
+      const { ProjectApi } = await import('./api/projectApi');
+      const project = await ProjectApi.createProject({
         name: input.name,
         client: input.client,
         start_date: input.start_date || new Date().toISOString().slice(0, 10),
         end_date: input.end_date || null,
-        status: input.status || 'Active'
-      } as any)
-      .select('id')
-      .single();
-    if (error) throw error;
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await NotificationService.createProjectNotification(
-          'project_created',
-          input.name,
-          input.client,
-          user.id,
-          ['Admin', 'Lead']
-        );
-      }
-    } catch (notificationError) {
-      console.warn('Failed to create notification for project creation:', notificationError);
+        status: input.status || 'Active',
+        po_number: input.po_number || null
+      });
+      
+      return { id: project._id || project.id || '' };
+    } catch (error) {
+      console.error('Error creating project:', error);
+      throw error;
     }
-
-    return { id: (data as any).id };
   }
 
   static async linkEmployeeToProject(params: { employeeId: string; projectId: string; allocationPercentage?: number; roleInProject?: string | null; startDate?: string; endDate?: string | null;billing?: string;
   rate?: number; }): Promise<void> {
-    const { error } = await supabase
-      .from('employee_projects')
-      .insert({
+    try {
+      const { ProjectApi } = await import('./api/projectApi');
+      await ProjectApi.assignEmployeeToProject(params.projectId, {
         employee_id: params.employeeId,
-        project_id: params.projectId,
         allocation_percentage: params.allocationPercentage ?? 100,
         role_in_project: params.roleInProject ?? null,
         start_date: params.startDate || new Date().toISOString().slice(0, 10),
         end_date: params.endDate || null,
         billing_type: params.billing || 'Monthly',
         billing_rate: params.rate || 0
-      } as any);
-    if (error) throw error;
+      });
+    } catch (error) {
+      console.error('Error linking employee to project:', error);
+      throw error;
+    }
   }
 
   static async getAllClients(): Promise<string[]> {
-    const { data, error } = await supabase
-      .from('projects')
-      .select('client')
-      .order('client', { ascending: true });
-    
-    if (error) throw error;
-    
-    const uniqueClients = [...new Set((data || []).map((p: any) => p.client))];
-    return uniqueClients;
+    try {
+      const { ClientApi } = await import('./api/clientApi');
+      return await ClientApi.getAllClients();
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      return [];
+    }
   }
 
   static async addClient(clientData: { name: string; contactPerson?: string; email?: string; phone?: string; address?: string; description?: string }): Promise<void> {
-    const { data: existingProjects } = await supabase
-      .from('projects')
-      .select('client')
-      .eq('client', clientData.name);
-    
-    if (existingProjects && existingProjects.length > 0) {
-      throw new Error('Client with this name already exists');
-    }
-    
-    // Create a proper default project with the client name (NO __CLIENT_ONLY__ prefix)
-    const { error } = await supabase
-      .from('projects')
-      .insert({
-        name: clientData.name, // Use client name directly
+    try {
+      const { ClientApi } = await import('./api/clientApi');
+      const { ProjectApi } = await import('./api/projectApi');
+      
+      // Check if client already exists
+      const existingClients = await ClientApi.getAllClients();
+      if (existingClients.some(c => c.toLowerCase() === clientData.name.toLowerCase())) {
+        throw new Error('Client with this name already exists');
+      }
+      
+      // Create a default project for the client
+      await ProjectApi.createProject({
+        name: clientData.name,
         client: clientData.name,
-        description: clientData.description || `Default project for ${clientData.name}`,
         start_date: new Date().toISOString().slice(0, 10),
         end_date: null,
         status: 'Active',
-        po_number: null,
-        team_size: 0,
-        department: 'General',
-        billing_type: 'Fixed',
-        currency: 'USD'
-      } as any);
-    
-    if (error) throw error;
+        po_number: null
+      });
+    } catch (error) {
+      console.error('Error adding client:', error);
+      throw error;
+    }
   }
 
   // Add this method to clean up existing default projects

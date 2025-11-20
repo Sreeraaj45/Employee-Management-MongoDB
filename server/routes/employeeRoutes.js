@@ -12,11 +12,48 @@ router.get('/', authenticateToken, async (req, res) => {
   try {
     const employees = await Employee.find()
       .populate('last_modified_by', 'name email')
-      .sort({ s_no: 1 });
+      .sort({ s_no: 1 })
+      .lean();
+
+    // Fetch all employee projects
+    const EmployeeProject = (await import('../models/EmployeeProject.js')).default;
+    const employeeIds = employees.map(emp => emp._id);
+    
+    const allEmployeeProjects = await EmployeeProject.find({ employee_id: { $in: employeeIds } })
+      .populate('project_id', 'name client')
+      .lean();
+
+    // Group projects by employee ID
+    const projectsByEmployee = {};
+    allEmployeeProjects.forEach(ep => {
+      const empId = ep.employee_id.toString();
+      if (!projectsByEmployee[empId]) {
+        projectsByEmployee[empId] = [];
+      }
+      projectsByEmployee[empId].push({
+        id: ep._id.toString(),
+        projectId: ep.project_id._id.toString(),
+        projectName: ep.project_id.name,
+        client: ep.project_id.client,
+        allocationPercentage: ep.allocation_percentage,
+        startDate: ep.start_date,
+        endDate: ep.end_date,
+        roleInProject: ep.role_in_project,
+        poNumber: ep.po_number,
+        billing: ep.billing_type,
+        rate: ep.billing_rate
+      });
+    });
+
+    // Add employeeProjects to each employee
+    const employeesWithProjects = employees.map(emp => ({
+      ...emp,
+      employeeProjects: projectsByEmployee[emp._id.toString()] || []
+    }));
 
     res.status(200).json({
-      employees,
-      count: employees.length
+      employees: employeesWithProjects,
+      count: employeesWithProjects.length
     });
   } catch (error) {
     console.error('Get employees error:', error);
@@ -48,8 +85,37 @@ router.get('/:id', authenticateToken, async (req, res) => {
       });
     }
 
+    // Fetch employee projects
+    const EmployeeProject = (await import('../models/EmployeeProject.js')).default;
+    const Project = (await import('../models/Project.js')).default;
+    
+    const employeeProjects = await EmployeeProject.find({ employee_id: id })
+      .populate('project_id', 'name client')
+      .lean();
+
+    // Transform employee projects to match frontend format
+    const transformedProjects = employeeProjects.map(ep => ({
+      id: ep._id.toString(),
+      projectId: ep.project_id._id.toString(),
+      projectName: ep.project_id.name,
+      client: ep.project_id.client,
+      allocationPercentage: ep.allocation_percentage,
+      startDate: ep.start_date,
+      endDate: ep.end_date,
+      roleInProject: ep.role_in_project,
+      poNumber: ep.po_number,
+      billing: ep.billing_type,
+      rate: ep.billing_rate
+    }));
+
+    // Add employeeProjects to employee object
+    const employeeWithProjects = {
+      ...employee.toObject(),
+      employeeProjects: transformedProjects
+    };
+
     res.status(200).json({
-      employee
+      employee: employeeWithProjects
     });
   } catch (error) {
     console.error('Get employee error:', error);

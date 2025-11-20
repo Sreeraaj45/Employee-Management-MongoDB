@@ -24,14 +24,26 @@ export function formatDate(date: string | Date | null | undefined): string {
 
 /**
  * Format a date string or Date object to YYYY-MM-DD format (for input fields)
- * @param date - Date string or Date object
+ * @param date - Date string (DD-MM-YYYY or ISO) or Date object
  * @returns Formatted date string in YYYY-MM-DD format, or empty string if invalid
  */
 export function formatDateForInput(date: string | Date | null | undefined): string {
   if (!date) return '';
   
   try {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    let dateObj: Date;
+    
+    if (typeof date === 'string') {
+      // Check if it's in DD-MM-YYYY format
+      if (/^\d{2}-\d{2}-\d{4}$/.test(date)) {
+        const [day, month, year] = date.split('-');
+        dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      } else {
+        dateObj = new Date(date);
+      }
+    } else {
+      dateObj = date;
+    }
     
     // Check if date is valid
     if (isNaN(dateObj.getTime())) return '';

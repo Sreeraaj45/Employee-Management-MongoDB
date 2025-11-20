@@ -112,16 +112,27 @@ export const Projects: React.FC<ProjectsProps> = () => {
   }, [searchTerm, clients]);
 
   const handleOpenProject = async (projectId: string, projectName: string, clientName: string) => {
+    console.log(`🖱️ Project clicked: ${projectName} (ID: ${projectId})`);
+    
+    if (!projectId || projectId === 'undefined') {
+      console.error('❌ Invalid project ID:', projectId);
+      return;
+    }
+    
     setSelectedProject({ id: projectId, name: projectName, clientName });
     try {
       setDetailLoading(true);
+      console.log(`🔍 Loading project details for: ${projectId}`);
       const [projectData, emps] = await Promise.all([
         ProjectService.getProjectById(projectId),
         ProjectService.getProjectEmployees(projectId)
       ]);
+      console.log(`✅ Project data loaded:`, projectData);
+      console.log(`✅ Project employees loaded: ${emps.length} employees`, emps);
       setProjectDetails(projectData);
       setProjectEmployees(emps);
     } catch (e) {
+      console.error('❌ Error loading project details:', e);
       setError(e instanceof Error ? e.message : 'Failed to load project details');
     } finally {
       setDetailLoading(false);

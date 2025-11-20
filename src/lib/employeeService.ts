@@ -44,9 +44,13 @@ static async getAllEmployees(): Promise<Employee[]> {
     const employees = await EmployeeApi.getAllEmployees();
     
     // Map MongoDB employees to expected format
-    return employees.map(emp => this.mapDatabaseRowToEmployee(emp));
-
-
+    const mappedEmployees = employees.map(emp => this.mapDatabaseRowToEmployee(emp));
+    
+    // TODO: Fetch project assignments for employees
+    // This requires a backend endpoint to get projects by employee ID
+    // For now, the projects field from the employee record will be used
+    
+    return mappedEmployees;
   } catch (error) {
     console.error('Error fetching employees:', error);
     throw error;
@@ -180,6 +184,12 @@ static async updateEmployee(id: string, employeeData: Partial<Employee>): Promis
   try {
     // Use MongoDB API instead of Supabase
     const { EmployeeApi } = await import('./api/employeeApi');
+    
+    // Handle project assignments if provided
+    if (employeeData.employeeProjects && Array.isArray(employeeData.employeeProjects)) {
+      await this.updateEmployeeProjectAssignments(id, employeeData.employeeProjects);
+    }
+    
     const employee = await EmployeeApi.updateEmployee(id, employeeData);
     return this.mapDatabaseRowToEmployee(employee);
   } catch (error) {
@@ -896,6 +906,12 @@ private static safeDateValue(dateValue: any): string | null {
         this.mapDatabaseRowToEmployee(emp)
       );
 
+      // Assign employees to their projects
+      if (mappedEmployees.length > 0) {
+        console.log('🔗 Assigning employees to their projects...');
+        await this.assignEmployeesToProjects(mappedEmployees);
+      }
+
       return mappedEmployees;
     } catch (error) {
       console.error('❌ Error bulk uploading employees:', error);
@@ -903,11 +919,158 @@ private static safeDateValue(dateValue: any): string | null {
     }
   }
 
-  // Search employees - TO BE MIGRATED TO MONGODB
+  // Assign employees to their projects based on client and project fields
+  private static async assignEmployeesToProjects(employees: Employee[]): Promise<void> {
+    try {
+      const { ProjectApi } = await import('./api/projectApi');
+      
+      // Helper to convert DD-MM-YYYY to YYYY-MM-DD
+      const convertDateFormat = (dateStr: string | undefined): string | null => {
+        if (!dateStr || dateStr.trim() === '') return null;
+        
+        // Check if it's in DD-MM-YYYY format
+        if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+          const [day, month, year] = dateStr.split('-');
+          return `${year}-${month}-${day}`;
+        }
+        
+        // Already in YYYY-MM-DD format or other format
+        return dateStr;
+      };
+      
+      // Get all projects
+      const allProjects = await ProjectApi.getAllProjects();
+      const projectMap = new Map<string, string>(); // key: "client|projectName", value: projectId
+      
+      allProjects.forEach(p => {
+        const key = `${p.client}|${p.name}`.toLowerCase();
+        projectMap.set(key, p._id || p.id || '');
+      });
+      
+      let assignedCount = 0;
+      let failedCount = 0;
+      
+      for (const employee of employees) {
+        if (!employee.client || !employee.projects) continue;
+        
+        // Parse project names (semicolon-separated)
+        const projectNames = employee.projects.split(';').map(p => p.trim()).filter(p => p);
+        
+        for (const projectName of projectNames) {
+          const key = `${employee.client}|${projectName}`.toLowerCase();
+          const projectId = projectMap.get(key);
+          
+          if (projectId) {
+            try {
+              await ProjectApi.assignEmployeeToProject(projectId, {
+                employee_id: employee.id,
+                allocation_percentage: employee.billabilityPercentage || 100,
+                start_date: convertDateFormat(employee.projectStartDate) || new Date().toISOString().slice(0, 10),
+                end_date: convertDateFormat(employee.projectEndDate),
+                role_in_project: employee.designation || null,
+                po_number: employee.poNumber || null,
+                billing_type: employee.billing || 'Monthly',
+                billing_rate: employee.rate || 0
+              });
+              assignedCount++;
+              console.log(`✅ Assigned ${employee.name} to project ${projectName}`);
+            } catch (error: any) {
+              // Ignore duplicate assignment errors
+              if (!error.message?.includes('already assigned')) {
+                failedCount++;
+                console.warn(`❌ Failed to assign ${employee.name} to ${projectName}:`, error.message);
+              }
+            }
+          } else {
+            console.warn(`⚠️ Project not found: "${projectName}" for client "${employee.client}"`);
+          }
+        }
+      }
+      
+      console.log(`🎉 Employee-project assignment complete: ${assignedCount} assigned, ${failedCount} failed`);
+    } catch (error) {
+      console.error('Error assigning employees to projects:', error);
+    }
+  }
+
+
+
+  // Update employee project assignments
+  private static async updateEmployeeProjectAssignments(employeeId: string, employeeProjects: any[]): Promise<void> {
+    try {
+      const { ProjectApi } = await import('./api/projectApi');
+      
+      console.log(`🔄 Updating project assignments for employee ${employeeId}:`, employeeProjects);
+      
+      // Helper to convert DD-MM-YYYY to YYYY-MM-DD
+      const convertDateFormat = (dateStr: string | undefined): string | null => {
+        if (!dateStr || dateStr.trim() === '') return null;
+        
+        // Check if it's in DD-MM-YYYY format
+        if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+          const [day, month, year] = dateStr.split('-');
+          return `${year}-${month}-${day}`;
+        }
+        
+        // Already in YYYY-MM-DD format or other format
+        return dateStr;
+      };
+      
+      // For each project assignment, create or update the assignment
+      for (const project of employeeProjects) {
+        if (!project.projectId) continue;
+        
+        try {
+          await ProjectApi.assignEmployeeToProject(project.projectId, {
+            employee_id: employeeId,
+            allocation_percentage: project.allocationPercentage || 100,
+            start_date: convertDateFormat(project.startDate) || new Date().toISOString().slice(0, 10),
+            end_date: convertDateFormat(project.endDate),
+            role_in_project: project.roleInProject || null,
+            po_number: project.poNumber || null,
+            billing_type: project.billing || 'Monthly',
+            billing_rate: project.rate || 0
+          });
+          console.log(`✅ Assigned to project ${project.projectName}`);
+        } catch (error: any) {
+          // If already assigned, that's okay
+          if (error.message?.includes('already assigned')) {
+            console.log(`ℹ️ Already assigned to project ${project.projectName}`);
+          } else {
+            console.error(`❌ Failed to assign to project ${project.projectName}:`, error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error updating employee project assignments:', error);
+      throw error;
+    }
+  }
+
+  // Search employees - Client-side filtering
   static async searchEmployees(query: string): Promise<Employee[]> {
-    // TODO: Implement with MongoDB API
-    console.warn('searchEmployees not yet migrated to MongoDB');
-    return [];
+    try {
+      // Get all employees and filter on client side
+      const allEmployees = await this.getAllEmployees();
+      
+      if (!query || query.trim() === '') {
+        return allEmployees;
+      }
+      
+      const searchTerm = query.toLowerCase().trim();
+      
+      return allEmployees.filter(emp => 
+        emp.name?.toLowerCase().includes(searchTerm) ||
+        emp.email?.toLowerCase().includes(searchTerm) ||
+        emp.employeeId?.toLowerCase().includes(searchTerm) ||
+        emp.client?.toLowerCase().includes(searchTerm) ||
+        emp.department?.toLowerCase().includes(searchTerm) ||
+        emp.designation?.toLowerCase().includes(searchTerm)
+      );
+    } catch (error) {
+      console.error('Error searching employees:', error);
+      return [];
+    }
     
     /* OLD SUPABASE CODE - TO BE MIGRATED
     try {
@@ -1349,6 +1512,20 @@ private static safeDateValue(dateValue: any): string | null {
       manager: safeString(row.manager),
       skills: Array.isArray(row.skills) ? row.skills : [],
       dateOfSeparation: formatDate(row.date_of_separation),
+      // ✅ Include employeeProjects if present
+      employeeProjects: Array.isArray(row.employeeProjects) ? row.employeeProjects.map((ep: any) => ({
+        id: ep.id || ep._id,
+        projectId: ep.projectId,
+        projectName: ep.projectName,
+        client: ep.client,
+        allocationPercentage: ep.allocationPercentage || 0,
+        startDate: formatDate(ep.startDate),
+        endDate: ep.endDate ? formatDate(ep.endDate) : undefined,
+        roleInProject: ep.roleInProject,
+        poNumber: ep.poNumber || '',
+        billing: ep.billing,
+        rate: ep.rate || 0
+      })) : []
     };
   }
 }
