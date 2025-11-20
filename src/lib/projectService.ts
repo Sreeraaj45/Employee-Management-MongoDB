@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+// import { supabase } from './supabase'; // Migrated to MongoDB API
 import { Employee } from '../types';
 import { NotificationService } from './notificationService';
 
@@ -111,9 +111,12 @@ export class ProjectService {
       // Get all projects from MongoDB
       const projects = await this.getAllProjects();
       
+      // Filter out projects without valid IDs
+      const validProjects = projects.filter(p => p.id && p.id !== '');
+      
       // Get employee counts for each project
       const { ProjectApi } = await import('./api/projectApi');
-      const employeeCountPromises = projects.map(async (project) => {
+      const employeeCountPromises = validProjects.map(async (project) => {
         try {
           const employees = await ProjectApi.getProjectEmployees(project.id);
           return { projectId: project.id, count: employees.length };
@@ -126,10 +129,14 @@ export class ProjectService {
       const employeeCounts = await Promise.all(employeeCountPromises);
       const employeeCountMap = new Map(employeeCounts.map(ec => [ec.projectId, ec.count]));
       
+      // Get all employees to count those assigned to clients
+      const { EmployeeService } = await import('./employeeService');
+      const allEmployees = await EmployeeService.getAllEmployees();
+      
       // Group projects by client
       const clientMap = new Map<string, ClientWithProjects>();
       
-      for (const project of projects) {
+      for (const project of validProjects) {
         if (!clientMap.has(project.client)) {
           clientMap.set(project.client, {
             client: project.client,
@@ -140,7 +147,6 @@ export class ProjectService {
         
         const employeeCount = employeeCountMap.get(project.id) || 0;
         const clientData = clientMap.get(project.client)!;
-        clientData.totalEmployees = (clientData.totalEmployees || 0) + employeeCount;
         
         clientData.projects.push({
           id: project.id,
@@ -150,6 +156,32 @@ export class ProjectService {
           employeeCount: employeeCount,
           poNumber: project.po_number || null
         });
+      }
+      
+      // Calculate total employees for each client (including those without projects)
+      for (const [clientName, clientData] of clientMap.entries()) {
+        // Count unique employees for this client
+        const clientEmployeeIds = new Set<string>();
+        
+        // Add employees from projects
+        allEmployees.forEach(emp => {
+          if (emp.employeeProjects && emp.employeeProjects.length > 0) {
+            emp.employeeProjects.forEach(proj => {
+              if (proj.client === clientName) {
+                clientEmployeeIds.add(emp.id);
+              }
+            });
+          }
+        });
+        
+        // Add employees assigned directly to client (without projects)
+        allEmployees.forEach(emp => {
+          if (emp.client === clientName) {
+            clientEmployeeIds.add(emp.id);
+          }
+        });
+        
+        clientData.totalEmployees = clientEmployeeIds.size;
       }
       
       // Convert map to array and sort by client name
@@ -268,25 +300,30 @@ export class ProjectService {
 
   if (clientsNeedingProjects.length > 0) {
     try {
-      // ⚡ Create all default projects in one batch insert
-      const projectsToCreate = clientsNeedingProjects.map(clientName => ({
-        name: clientName,
-        client: clientName,
-        description: `Default project for ${clientName}`,
-        start_date: new Date().toISOString().slice(0, 10),
-        end_date: null,
-        status: 'Active',
-        po_number: null,
-        team_size: 0,
-        department: 'General',
-        billing_type: 'Fixed',
-        currency: 'USD'
-      }));
+      // ⚡ Create all default projects using MongoDB API
+      const { ProjectApi } = await import('./api/projectApi');
+      const newProjects = [];
+      
+      for (const clientName of clientsNeedingProjects) {
+        try {
+          const newProject = await ProjectApi.createProject({
+            name: clientName,
+            client: clientName,
+            description: `Default project for ${clientName}`,
+            start_date: new Date().toISOString().slice(0, 10),
+            end_date: null,
+            status: 'Active',
+            po_number: null,
+            team_size: 0,
+            department: 'General'
+          });
+          newProjects.push(newProject);
+        } catch (error) {
+          console.error(`Failed to create default project for ${clientName}:`, error);
+        }
+      }
 
-      const { data: newProjects, error: createError } = await supabase
-        .from('projects')
-        .insert(projectsToCreate as any)
-        .select('id, name, client, status, team_size, po_number');
+      const createError = null;
 
       if (!createError && newProjects) {
         // ⚡ Build employee assignments in memory
@@ -330,14 +367,19 @@ export class ProjectService {
           });
         });
 
-        // ⚡ Insert all employee assignments in one batch (if any)
+        // ⚡ Insert all employee assignments using MongoDB API
         if (employeeAssignments.length > 0) {
-          const { error: linkError } = await supabase
-            .from('employee_projects')
-            .insert(employeeAssignments as any);
+          const { EmployeeProjectApi } = await import('./api/employeeProjectApi');
           
-          if (linkError) {
-            console.error('Failed to batch insert employee assignments:', linkError);
+          for (const assignment of employeeAssignments) {
+            try {
+              await EmployeeProjectApi.assignEmployeeToProject(assignment.project_id, assignment);
+            } catch (error: any) {
+              // Ignore duplicate assignment errors
+              if (!error.message?.includes('already assigned')) {
+                console.error('Failed to assign employee to project:', error);
+              }
+            }
           }
         }
       }
@@ -351,6 +393,12 @@ export class ProjectService {
 
   static async getProjectEmployees(projectId: string): Promise<Employee[]> {
     try {
+      // Validate projectId
+      if (!projectId || projectId === 'undefined' || projectId === 'null') {
+        console.error('Invalid project ID provided to getProjectEmployees:', projectId);
+        return [];
+      }
+      
       const { ProjectApi } = await import('./api/projectApi');
       const employees = await ProjectApi.getProjectEmployees(projectId);
       
@@ -484,6 +532,36 @@ export class ProjectService {
   }
 
   static async getClientEmployees(clientName: string): Promise<Employee[]> {
+    try {
+      // Use MongoDB API to get all employees
+      const { EmployeeService } = await import('./employeeService');
+      const allEmployees = await EmployeeService.getAllEmployees();
+      
+      // Filter employees that belong to this client
+      // Either by direct client field OR by having projects under this client
+      const clientEmployees = allEmployees.filter(emp => {
+        // Check if employee's client field matches
+        if (emp.client === clientName) {
+          return true;
+        }
+        
+        // Check if employee has any projects under this client
+        if (emp.employeeProjects && emp.employeeProjects.length > 0) {
+          return emp.employeeProjects.some(proj => proj.client === clientName);
+        }
+        
+        return false;
+      });
+      
+      return clientEmployees;
+    } catch (error) {
+      console.error('Error getting client employees:', error);
+      throw error;
+    }
+  }
+  
+  /* OLD SUPABASE CODE - MIGRATED TO MONGODB
+  static async getClientEmployees_OLD(clientName: string): Promise<Employee[]> {
   // Get ALL employees linked to this client (both by client field and by project assignments)
   
   // First, get employees whose client field matches this client
@@ -653,6 +731,7 @@ export class ProjectService {
 
   return employeesWithAssignmentStatus;
 }
+  */
 
   static async createProject(input: { name: string; client: string; start_date?: string; end_date?: string | null; status?: string; po_number?: string | null; budget?: number | null; }): Promise<{ id: string }> {
     try {
@@ -805,9 +884,10 @@ static async migrateDefaultProjectNames(): Promise<void> {
     billing_type?: string;
     team_size?: number;
   }): Promise<{ id: string }> {
-    const { data, error } = await supabase
-      .from('projects')
-      .insert({
+    try {
+      const { ProjectApi } = await import('./api/projectApi');
+      
+      const project = await ProjectApi.createProject({
         name: input.name,
         client: input.client,
         description: input.description || null,
@@ -816,95 +896,43 @@ static async migrateDefaultProjectNames(): Promise<void> {
         end_date: input.end_date || null,
         status: input.status || 'Active',
         po_number: input.po_number || null,
-        currency: input.currency || 'USD',
-        billing_type: input.billing_type || 'Fixed',
         team_size: input.team_size || 0
-      } as any)
-      .select('id')
-      .single();
-    if (error) throw error;
+      });
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await NotificationService.createProjectNotification(
-          'project_created',
-          input.name,
-          input.client,
-          user.id,
-          ['Admin', 'Lead']
-        );
+      try {
+        console.log('Project created successfully:', input.name);
+      } catch (notificationError) {
+        console.warn('Failed to create notification for project creation:', notificationError);
       }
-    } catch (notificationError) {
-      console.warn('Failed to create notification for project creation:', notificationError);
-    }
 
-    return { id: (data as any).id };
+      return { id: project._id || project.id };
+    } catch (error) {
+      console.error('Error creating project:', error);
+      throw error;
+    }
   }
 
   static async deleteProject(projectId: string): Promise<void> {
-    const { data: project, error: projectFetchError } = await supabase
-      .from('projects')
-      .select('name, client')
-      .eq('id', projectId)
-      .single();
-    
-    if (projectFetchError) throw projectFetchError;
-
-    const { data: mappings, error: mappingFetchError } = await supabase
-      .from('employee_projects')
-      .select('employee_id')
-      .eq('project_id', projectId);
-    
-    if (mappingFetchError) throw mappingFetchError;
-
-    if (mappings && mappings.length > 0) {
-      const employeeIds = mappings.map(m => m.employee_id);
-      const { error: updateError } = await supabase
-        .from('employees')
-        .update({ 
-          billability_status: 'Bench',
-          client: null,
-          projects: null,
-          billability_percentage: 0,
-          project_start_date: null,
-          project_end_date: null,
-          last_active_date: new Date().toISOString().slice(0, 10)
-        })
-        .in('id', employeeIds);
+    try {
+      const { ProjectApi } = await import('./api/projectApi');
       
-      if (updateError) throw updateError;
-    }
-
-    const { error: mappingError } = await supabase
-      .from('employee_projects')
-      .delete()
-      .eq('project_id', projectId);
-    
-    if (mappingError) throw mappingError;
-
-    const { error } = await supabase
-      .from('projects')
-      .delete()
-      .eq('id', projectId);
-    
-    if (error) throw error;
-
-    if (project) {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await NotificationService.createProjectNotification(
-            'project_deleted',
-            project.name,
-            project.client,
-            user.id,
-            ['Admin', 'Lead']
-          );
+      // Get project before deletion for notification
+      const project = await this.getProjectById(projectId);
+      
+      // Delete project using MongoDB API (backend will handle employee-project cleanup)
+      await ProjectApi.deleteProject(projectId);
+      
+      // Create notification
+      if (project) {
+        try {
+          console.log('Project deleted successfully:', project.name);
+        } catch (notificationError) {
+          console.warn('Failed to create notification for project deletion:', notificationError);
         }
-      } catch (notificationError) {
-        console.warn('Failed to create notification for project deletion:', notificationError);
       }
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      throw error;
     }
   }
 
@@ -993,36 +1021,28 @@ static async migrateDefaultProjectNames(): Promise<void> {
     billing_type?: string;
     team_size?: number;
   }): Promise<void> {
-    const { data: project, error: projectFetchError } = await supabase
-      .from('projects')
-      .select('name, client')
-      .eq('id', projectId)
-      .single();
-    
-    if (projectFetchError) throw projectFetchError;
-
-    const { error } = await supabase
-      .from('projects')
-      .update(updates)
-      .eq('id', projectId);
-    
-    if (error) throw error;
-
-    if (project) {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await NotificationService.createProjectNotification(
-            'project_updated',
-            project.name,
-            project.client,
-            user.id,
-            ['Admin', 'Lead']
-          );
+    try {
+      const { ProjectApi } = await import('./api/projectApi');
+      
+      // Get project before update for notification
+      const project = await this.getProjectById(projectId);
+      
+      // Update project using MongoDB API
+      await ProjectApi.updateProject(projectId, updates);
+      
+      // Create notification
+      if (project) {
+        try {
+          // Get current user from auth context if available
+          // For now, skip notification or use a default user
+          console.log('Project updated successfully:', project.name);
+        } catch (notificationError) {
+          console.warn('Failed to create notification for project update:', notificationError);
         }
-      } catch (notificationError) {
-        console.warn('Failed to create notification for project update:', notificationError);
       }
+    } catch (error) {
+      console.error('Error updating project:', error);
+      throw error;
     }
   }
 

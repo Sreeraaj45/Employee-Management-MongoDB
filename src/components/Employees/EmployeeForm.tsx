@@ -814,22 +814,22 @@ export const EmployeeForm: React.FC<EmployeeFormProps> = ({ employee, onSave, on
             </div>
           </div>
 
-          {/* <div>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Client (Legacy - for backward compatibility)
+              Client
+              <span className="text-xs text-gray-500 ml-2">(Optional - can be set without project assignment)</span>
             </label>
             <select
               value={formData.client}
-              onChange={(e) => setFormData({ ...formData, client: e.target.value, projects: '' })}
-              className={`w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent ${disableClientProject ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-              disabled={disableClientProject}
+              onChange={(e) => setFormData({ ...formData, client: e.target.value })}
+              className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-transparent"
             >
-              <option value="">Select client</option>
+              <option value="">Select client (optional)</option>
               {clientNames.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
-          </div> */}
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">

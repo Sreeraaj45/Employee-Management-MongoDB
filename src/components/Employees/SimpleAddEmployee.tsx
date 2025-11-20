@@ -163,7 +163,7 @@ export const SimpleAddEmployee: React.FC<SimpleAddEmployeeProps> = ({ onClose, o
         } else {
           showSuccess('Employees Added', `${selectedEmployees.length} employee(s) (${employeeNames}) have been successfully added to ${clientName} - ${projectName}.`);
         }
-        onEmployeeAdded();
+        onEmployeeAdded(projectId!, clientName!);
         
         // Clear selection
         setSelectedEmployees([]);

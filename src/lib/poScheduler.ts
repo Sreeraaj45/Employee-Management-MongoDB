@@ -4,6 +4,11 @@ import { ProjectApi } from './api/projectApi';
 export class POScheduler {
   static async recalculateAllActivePOs(): Promise<void> {
     try {
+      // TODO: Migrate PO amendment recalculation to MongoDB API
+      console.log('⚠️ PO scheduler disabled - PO amendments not yet migrated to MongoDB');
+      return;
+      
+      /* OLD CODE - TO BE MIGRATED
       console.log('Starting PO scheduler: Recalculating active POs...');
       
       // Get all projects with PO amendments
@@ -30,8 +35,9 @@ export class POScheduler {
       }
       
       console.log(`PO scheduler completed: ${processedCount} projects processed, ${errorCount} errors`);
+      */
     } catch (error) {
-      console.error('Error in PO scheduler:', error);
+      console.error('❌ PO scheduler failed:', error);
     }
   }
 

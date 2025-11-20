@@ -336,7 +336,8 @@ export const Projects: React.FC<ProjectsProps> = () => {
       const employees = await ProjectService.getClientEmployees(clientName);
       setClientEmployees(employees);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load client employees');
+      console.error('Error loading client employees:', e);
+      showError('Load Failed', e instanceof Error ? e.message : 'Failed to load client employees');
     } finally {
       setClientDetailLoading(false);
     }

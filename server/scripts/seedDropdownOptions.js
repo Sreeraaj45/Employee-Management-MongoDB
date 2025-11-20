@@ -1,232 +1,113 @@
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
 import DropdownOption from '../models/DropdownOption.js';
-import connectDB from '../config/database.js';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
-/**
- * Seed data for dropdown options
- * This script populates the database with common dropdown values
- * It is idempotent - can be run multiple times safely
- */
-
-const dropdownData = {
+const defaultOptions = {
+  billability_status: [
+    'Billable',
+    'Bench',
+    'Trainee',
+    'Buffer',
+    'ML',
+    'NA'
+  ],
+  mode_of_management: [
+    'Managed Service',
+    'SUPPORT_FUNCTIONS',
+    'T&M',
+    'Fixed Price'
+  ],
+  experience_band: [
+    '0-2 years',
+    '2-5 years',
+    '5-8 years',
+    '8-12 years',
+    '12+ years'
+  ],
   department: [
     'Engineering',
-    'Human Resources',
+    'QA',
+    'DevOps',
+    'Design',
+    'Product',
+    'Management',
+    'HR',
     'Finance',
-    'Marketing',
     'Sales',
-    'Operations',
-    'Product Management',
-    'Quality Assurance',
-    'Customer Support',
-    'Administration',
-    'Research & Development',
-    'Business Development',
-    'Legal',
-    'IT Support',
-    'Data Analytics'
+    'Marketing'
   ],
-  
   designation: [
     'Software Engineer',
     'Senior Software Engineer',
-    'Lead Software Engineer',
-    'Principal Engineer',
-    'Engineering Manager',
-    'Technical Architect',
-    'DevOps Engineer',
+    'Lead Engineer',
+    'Architect',
     'QA Engineer',
-    'Senior QA Engineer',
+    'DevOps Engineer',
     'Product Manager',
-    'Senior Product Manager',
     'Project Manager',
-    'Business Analyst',
-    'Data Analyst',
-    'Data Scientist',
-    'UI/UX Designer',
-    'Frontend Developer',
-    'Backend Developer',
-    'Full Stack Developer',
-    'Mobile Developer',
-    'HR Manager',
-    'HR Executive',
-    'Recruiter',
-    'Finance Manager',
-    'Accountant',
-    'Marketing Manager',
-    'Marketing Executive',
-    'Sales Manager',
-    'Sales Executive',
-    'Operations Manager',
-    'Team Lead',
-    'Associate',
-    'Senior Associate',
-    'Consultant',
-    'Senior Consultant',
-    'Director',
-    'Vice President',
-    'Chief Technology Officer',
-    'Chief Executive Officer'
-  ],
-  
-  billability_status: [
-    'Billable',
-    'Non-Billable',
-    'Partially Billable',
-    'On Bench',
-    'Internal Project',
-    'Training',
-    'On Leave',
-    'Shadow Resource'
-  ],
-  
-  experience_band: [
-    '0-1 years',
-    '1-2 years',
-    '2-3 years',
-    '3-5 years',
-    '5-7 years',
-    '7-10 years',
-    '10-15 years',
-    '15+ years'
-  ],
-  
-  mode_of_management: [
-    'Direct',
-    'Indirect',
-    'Matrix',
-    'Functional',
-    'Project-based'
-  ],
-  
-  billing: [
-    'Monthly',
-    'Fixed',
-    'Daily',
-    'Hourly',
-    'Milestone-based',
-    'Retainer'
-  ],
-  
-  location: [
-    'Bangalore',
-    'Mumbai',
-    'Delhi',
-    'Hyderabad',
-    'Pune',
-    'Chennai',
-    'Kolkata',
-    'Ahmedabad',
-    'Noida',
-    'Gurgaon',
-    'Remote',
-    'Hybrid'
-  ],
-  
-  position: [
-    'Junior',
-    'Mid-Level',
-    'Senior',
-    'Lead',
-    'Principal',
-    'Manager',
-    'Senior Manager',
-    'Director',
-    'VP',
-    'C-Level'
+    'Designer',
+    'Analyst'
   ]
 };
 
-/**
- * Seed dropdown options into the database
- */
 async function seedDropdownOptions() {
   try {
-    console.log('Starting dropdown options seeding...');
-    
-    let totalCreated = 0;
-    let totalSkipped = 0;
-    
-    // Iterate through each field and its options
-    for (const [fieldName, options] of Object.entries(dropdownData)) {
-      console.log(`\nProcessing field: ${fieldName}`);
-      
+    // Connect to MongoDB
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log('✅ Connected to MongoDB');
+
+    // Clear existing options (optional - comment out if you want to keep existing)
+    // await DropdownOption.deleteMany({});
+    // console.log('🗑️  Cleared existing dropdown options');
+
+    let createdCount = 0;
+    let skippedCount = 0;
+
+    // Seed each field's options
+    for (const [fieldName, options] of Object.entries(defaultOptions)) {
       for (let i = 0; i < options.length; i++) {
         const optionValue = options[i];
         
-        try {
-          // Check if option already exists
-          const existingOption = await DropdownOption.findOne({
-            field_name: fieldName,
-            option_value: optionValue
-          });
-          
-          if (existingOption) {
-            console.log(`  ✓ Skipped (exists): ${optionValue}`);
-            totalSkipped++;
-          } else {
-            // Create new option
-            await DropdownOption.create({
-              field_name: fieldName,
-              option_value: optionValue,
-              display_order: i,
-              is_active: true
-            });
-            console.log(`  ✓ Created: ${optionValue}`);
-            totalCreated++;
-          }
-        } catch (error) {
-          // Handle duplicate key errors gracefully
-          if (error.code === 11000) {
-            console.log(`  ✓ Skipped (duplicate): ${optionValue}`);
-            totalSkipped++;
-          } else {
-            console.error(`  ✗ Error creating ${optionValue}:`, error.message);
-          }
+        // Check if option already exists
+        const existing = await DropdownOption.findOne({
+          field_name: fieldName,
+          option_value: optionValue
+        });
+
+        if (existing) {
+          console.log(`⏭️  Skipped: ${fieldName} - ${optionValue} (already exists)`);
+          skippedCount++;
+          continue;
         }
+
+        // Create new option
+        const dropdown = new DropdownOption({
+          field_name: fieldName,
+          option_value: optionValue,
+          display_order: i + 1,
+          is_active: true
+        });
+
+        await dropdown.save();
+        console.log(`✅ Created: ${fieldName} - ${optionValue}`);
+        createdCount++;
       }
     }
-    
-    console.log('\n' + '='.repeat(50));
-    console.log('Seeding completed!');
-    console.log(`Total created: ${totalCreated}`);
-    console.log(`Total skipped: ${totalSkipped}`);
-    console.log('='.repeat(50));
-    
-    return { created: totalCreated, skipped: totalSkipped };
-  } catch (error) {
-    console.error('Error seeding dropdown options:', error);
-    throw error;
-  }
-}
 
-/**
- * Main execution function
- */
-async function main() {
-  try {
-    // Connect to database
-    await connectDB();
-    
-    // Run seeding
-    await seedDropdownOptions();
-    
-    // Close connection
+    console.log(`\n🎉 Seeding complete!`);
+    console.log(`   Created: ${createdCount} options`);
+    console.log(`   Skipped: ${skippedCount} options (already existed)`);
+
     await mongoose.connection.close();
-    console.log('\nDatabase connection closed.');
-    
+    console.log('✅ Database connection closed');
     process.exit(0);
   } catch (error) {
-    console.error('Fatal error:', error);
+    console.error('❌ Error seeding dropdown options:', error);
+    await mongoose.connection.close();
     process.exit(1);
   }
 }
 
-// Export functions for use in other modules
-export { seedDropdownOptions, dropdownData };
-
-// Run main function when script is executed directly
-main();
+seedDropdownOptions();

@@ -194,7 +194,7 @@ router.delete('/:id', ...authorize(['Admin', 'Lead', 'HR', 'Delivery Team']), as
   try {
     const { id } = req.params;
 
-    const project = await Project.findByIdAndDelete(id);
+    const project = await Project.findById(id);
 
     if (!project) {
       return res.status(404).json({
@@ -204,12 +204,34 @@ router.delete('/:id', ...authorize(['Admin', 'Lead', 'HR', 'Delivery Team']), as
       });
     }
 
-    // Also delete all employee-project associations
+    // Get all employees assigned to this project
+    const employeeAssignments = await EmployeeProject.find({ project_id: id });
+    const employeeIds = employeeAssignments.map(ep => ep.employee_id);
+
+    // Delete all employee-project associations for this project
     await EmployeeProject.deleteMany({ project_id: id });
+
+    // For each affected employee, check if they have other project assignments
+    for (const employeeId of employeeIds) {
+      const remainingAssignments = await EmployeeProject.find({ employee_id: employeeId });
+      
+      // If employee has no more project assignments, move them to bench
+      if (remainingAssignments.length === 0) {
+        await Employee.findByIdAndUpdate(employeeId, {
+          billability_status: 'Bench',
+          billability_percentage: 0,
+          last_active_date: new Date().toISOString().slice(0, 10)
+        });
+      }
+    }
+
+    // Delete the project
+    await Project.findByIdAndDelete(id);
 
     res.status(200).json({
       message: 'Project deleted successfully',
-      project
+      project,
+      affectedEmployees: employeeIds.length
     });
   } catch (error) {
     console.error('Delete project error:', error);

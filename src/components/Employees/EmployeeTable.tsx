@@ -151,6 +151,7 @@ export const EmployeeTable = ({
     { key: 'name', label: 'Employee Name', visible: true },
     { key: 'department', label: 'Department', visible: true },
     { key: 'designation', label: 'Designation', visible: true },
+    { key: 'client', label: 'Client', visible: true },
     { key: 'projects', label: 'Projects & Allocation', visible: true },
     { key: 'modeOfManagement', label: 'Mode of Management', visible: true },
     { key: 'billabilityStatus', label: 'Billability Status', visible: true },

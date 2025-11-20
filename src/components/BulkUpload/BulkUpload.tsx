@@ -16,6 +16,8 @@ export const BulkUpload: React.FC<BulkUploadProps> = ({ onUpload }) => {
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [uploadMessage, setUploadMessage] = useState('');
   const [uploadedCount, setUploadedCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [progressPercentage, setProgressPercentage] = useState(0);
   const [conflicts, setConflicts] = useState<ConflictData[]>([]);
   const [excelRows, setExcelRows] = useState<any[]>([]);
   const [showConflictResolution, setShowConflictResolution] = useState(false);
@@ -70,6 +72,8 @@ export const BulkUpload: React.FC<BulkUploadProps> = ({ onUpload }) => {
     setUploadStatus('processing');
     setUploadMessage('Processing file...');
     setUploadedCount(0);
+    setTotalCount(0);
+    setProgressPercentage(0);
     setUploadProgress('Reading file...');
     setProcessingSteps(['Reading file...']);
     setValidationSummary(null); // ✅ Clear previous validation summary
@@ -142,6 +146,7 @@ export const BulkUpload: React.FC<BulkUploadProps> = ({ onUpload }) => {
 
       setUploadProgress('Converting to employee data...');
       setProcessingSteps(prev => [...prev, 'Converting to employee data...']);
+      setProgressPercentage(40);
 
       // Convert to employee objects
       const employees = ExcelParser.excelRowsToEmployees(excelRowsParsed);
@@ -151,10 +156,13 @@ export const BulkUpload: React.FC<BulkUploadProps> = ({ onUpload }) => {
       }
 
       console.log('Converted employees:', employees);
+      setTotalCount(employees.length);
+      setProgressPercentage(50);
 
       // CRITICAL: Actually save to database using bulkUploadEmployees
-      setUploadProgress('Saving to database...');
-      setProcessingSteps(prev => [...prev, 'Saving to database...']);
+      setUploadProgress(`Saving ${employees.length} employees to database...`);
+      setProcessingSteps(prev => [...prev, `Saving ${employees.length} employees to database...`]);
+      setProgressPercentage(60);
 
       // Use the bulkUploadEmployees function from useEmployees hook
       const saveResult = await bulkUploadEmployees(employees);
@@ -163,6 +171,7 @@ export const BulkUpload: React.FC<BulkUploadProps> = ({ onUpload }) => {
       // Only show success after database operation is complete
       const savedCount = Array.isArray(saveResult) ? saveResult.length : 0;
       setUploadedCount(savedCount);
+      setProgressPercentage(100);
       
       // Add a small delay to ensure state updates
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -217,6 +226,8 @@ export const BulkUpload: React.FC<BulkUploadProps> = ({ onUpload }) => {
     setUploadStatus('processing');
     setUploadMessage('Processing conflict resolutions...');
     setUploadProgress('Processing conflict resolutions...');
+    setProgressPercentage(30);
+    setTotalCount(resolutions.length);
     setProcessingSteps(['Processing conflict resolutions...']);
 
     const employees = ExcelParser.excelRowsToEmployees(excelRows);
@@ -429,21 +440,43 @@ export const BulkUpload: React.FC<BulkUploadProps> = ({ onUpload }) => {
 
             {uploadStatus === 'processing' && (
               <>
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="text-xl font-semibold text-gray-900">{uploadMessage}</p>
-                {uploadProgress && (
-                  <p className="text-sm text-gray-600 mt-2">{uploadProgress}</p>
-                )}
-                {processingSteps.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {processingSteps.map((step, index) => (
-                      <div key={index} className="flex items-center space-x-2 text-sm text-gray-600">
-                        <div className={`w-2 h-2 rounded-full ${index === processingSteps.length - 1 ? 'bg-blue-600' : 'bg-green-500'}`}></div>
-                        <span>{step}</span>
+                <div className="w-full max-w-md mx-auto">
+                  {/* Progress Bar */}
+                  <div className="mb-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <p className="text-xl font-semibold text-gray-900">{uploadMessage}</p>
+                      {totalCount > 0 && (
+                        <span className="text-sm font-medium text-blue-600">
+                          {uploadedCount} / {totalCount}
+                        </span>
+                      )}
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                      <div 
+                        className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${progressPercentage}%` }}
+                      >
+                        <div className="h-full w-full bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse"></div>
                       </div>
-                    ))}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1 text-center">{progressPercentage}% Complete</p>
                   </div>
-                )}
+                  
+                  {uploadProgress && (
+                    <p className="text-sm text-gray-600 text-center mb-3">{uploadProgress}</p>
+                  )}
+                  
+                  {processingSteps.length > 0 && (
+                    <div className="mt-4 space-y-2 max-h-40 overflow-y-auto">
+                      {processingSteps.map((step, index) => (
+                        <div key={index} className="flex items-center space-x-2 text-sm text-gray-600">
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${index === processingSteps.length - 1 ? 'bg-blue-600 animate-pulse' : 'bg-green-500'}`}></div>
+                          <span>{step}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </>
             )}
 
