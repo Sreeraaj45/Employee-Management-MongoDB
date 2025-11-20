@@ -632,19 +632,8 @@ export const EmployeeTable = ({
           displayStatus = 'Bench';
           statusClass = 'bg-yellow-100 text-yellow-800';
           
-          // ✅ AUTO-UPDATE: Trigger database update when status should change
-          useEffect(() => {
-            const updateStatus = async () => {
-              try {
-                await EmployeeService.autoUpdateEmployeeStatus(employee);
-                // The refetch in the parent useEffect will handle the UI update
-              } catch (error) {
-                console.error('Failed to auto-update status:', error);
-              }
-            };
-            
-            updateStatus();
-          }, [employee]);
+          // Note: Auto-update is handled by the useEffect at the component level
+          // Don't call hooks inside render functions
           
         } else {
           statusClass = employee.billabilityStatus === 'Billable'

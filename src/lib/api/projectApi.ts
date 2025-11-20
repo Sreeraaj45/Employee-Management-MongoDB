@@ -84,4 +84,38 @@ export class ProjectApi {
       throw error;
     }
   }
+
+  static async removeEmployeeFromProject(projectId: string, employeeId: string): Promise<void> {
+    try {
+      await apiClient.delete(`/api/projects/${projectId}/employees/${employeeId}`);
+    } catch (error) {
+      console.error('Error removing employee from project:', error);
+      throw error;
+    }
+  }
+
+  // Helper method to get projects by client
+  static async getProjectsByClient(clientName: string): Promise<Project[]> {
+    try {
+      const allProjects = await this.getAllProjects();
+      return allProjects.filter(p => p.client === clientName);
+    } catch (error) {
+      console.error('Error fetching projects by client:', error);
+      throw error;
+    }
+  }
+
+  // Helper method to check if project exists
+  static async projectExists(name: string, client: string): Promise<boolean> {
+    try {
+      const allProjects = await this.getAllProjects();
+      return allProjects.some(p => 
+        p.name.toLowerCase() === name.toLowerCase() && 
+        p.client.toLowerCase() === client.toLowerCase()
+      );
+    } catch (error) {
+      console.error('Error checking project existence:', error);
+      return false;
+    }
+  }
 }

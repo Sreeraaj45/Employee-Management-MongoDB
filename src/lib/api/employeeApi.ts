@@ -90,7 +90,12 @@ export class EmployeeApi {
 
   static async bulkCreateEmployees(employees: Partial<Employee>[], conflictResolution: 'skip' | 'overwrite' = 'skip'): Promise<any> {
     try {
-      const response = await apiClient.post('/api/employees/bulk', { employees, conflictResolution });
+      // Transform all employees to snake_case
+      const snakeCaseEmployees = employees.map(emp => this.toSnakeCase(emp));
+      const response = await apiClient.post('/api/employees/bulk', { 
+        employees: snakeCaseEmployees, 
+        conflictResolution 
+      });
       return response;
     } catch (error) {
       console.error('Error bulk creating employees:', error);

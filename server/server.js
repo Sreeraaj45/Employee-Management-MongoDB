@@ -37,8 +37,8 @@ import Logger from './utils/logger.js';
 
 // Middleware
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' })); // Increase limit for bulk uploads
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Request logging middleware (logs all incoming requests)
 app.use(requestLogger);

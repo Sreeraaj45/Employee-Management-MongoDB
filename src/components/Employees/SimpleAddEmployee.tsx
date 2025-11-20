@@ -3,7 +3,7 @@ import { X, Search, Plus } from 'lucide-react';
 import { Employee } from '../../types';
 import { EmployeeService } from '../../lib/employeeService';
 import { ProjectService } from '../../lib/projectService';
-import { supabase } from '../../lib/supabase';
+import { ProjectApi } from '../../lib/api/projectApi';
 import { showSuccess, showError, showConfirm } from '../../lib/sweetAlert';
 
 interface SimpleAddEmployeeProps {
@@ -102,19 +102,13 @@ export const SimpleAddEmployee: React.FC<SimpleAddEmployeeProps> = ({ onClose, o
             if ((employee as any)._removeFromOldProject) {
               // Remove from old project first
               try {
-                const { data: oldProject } = await supabase
-                  .from('projects')
-                  .select('id')
-                  .eq('client', employee.client)
-                  .eq('name', employee.projects)
-                  .single();
+                const allProjects = await ProjectApi.getAllProjects();
+                const oldProject = allProjects.find(p => 
+                  p.client === employee.client && p.name === employee.projects
+                );
                 
                 if (oldProject) {
-                  await supabase
-                    .from('employee_projects')
-                    .delete()
-                    .eq('employee_id', employee.id)
-                    .eq('project_id', oldProject.id);
+                  await ProjectApi.removeEmployeeFromProject(oldProject._id || oldProject.id || '', employee.id);
                   console.log(`Removed employee ${employee.name} from old project ${employee.client} - ${employee.projects}`);
                 }
               } catch (error) {

@@ -50,6 +50,15 @@ static async getAllEmployees(): Promise<Employee[]> {
 // Get employee by ID with project relationships
 static async getEmployeeById(id: string): Promise<Employee | null> {
   try {
+    // Use MongoDB API
+    const { EmployeeApi } = await import('./api/employeeApi');
+    const employee = await EmployeeApi.getEmployeeById(id);
+    
+    if (!employee) return null;
+    
+    return this.mapDatabaseRowToEmployee(employee);
+    
+    /* OLD SUPABASE CODE - COMMENTED OUT
     const { data, error } = await supabase
       .from('employees')
       .select('*')
@@ -137,12 +146,10 @@ static async getEmployeeById(id: string): Promise<Employee | null> {
 
     // ✅ PROCESS: Auto-set lastActiveDate based on latest PO end date
     return this.processEmployeeDataWithLatestPOEndDate(employee);
+    */
   } catch (error) {
       console.error('Error fetching employee:', error);
-      // Return null instead of throwing for "not found" scenarios
-      if (error.code === 'PGRST116') {
-        return null;
-      }
+      return null;
       throw error;
   }
 }
@@ -314,41 +321,17 @@ private static safeDateValue(dateValue: any): string | null {
         throw new Error('No employees selected for deletion');
       }
 
-      // Get employee info before deletion for notification
-      const employees = await Promise.all(
-        ids.map(id => this.getEmployeeById(id))
-      );
-      const validEmployees = employees.filter(emp => emp !== null) as Employee[];
-
-      // ✅ FIX: Remove .single() from mass delete operations
-      const { error } = await supabase
-        .from('employees')
-        .delete()
-        .in('id', ids);
-
-      if (error) throw error;
-
-      // Resequence s_no after deletion to keep contiguous ordering
-      const { error: rpcError } = await supabase.rpc('resequence_employees_s_no');
-      if (rpcError) {
-        console.warn('Warning: Could not resequence employees:', rpcError);
-        // Don't throw error for resequencing failure
-      }
-
-      // Create notification for mass deletion
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await NotificationService.createBulkUploadNotification(
-            validEmployees.length,
-            user.id,
-            ['Admin', 'Lead', 'HR'],
-            'Mass deletion completed'
-          );
+      // Use MongoDB API to delete employees
+      const { EmployeeApi } = await import('./api/employeeApi');
+      
+      // Delete each employee
+      for (const id of ids) {
+        try {
+          await EmployeeApi.deleteEmployee(id);
+        } catch (error) {
+          console.error(`Failed to delete employee ${id}:`, error);
+          // Continue with other deletions
         }
-      } catch (notificationError) {
-        console.warn('Failed to create notification for mass deletion:', notificationError);
-        // Don't throw error to avoid breaking the mass deletion process
       }
     } catch (error) {
       console.error('Error mass deleting employees:', error);
@@ -362,9 +345,72 @@ private static safeDateValue(dateValue: any): string | null {
   conflicts: ConflictData[]
 ): Promise<Employee[]> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
+    // Check authentication
+    const token = localStorage.getItem('auth_token');
+    if (!token) throw new Error('User not authenticated');
 
+    console.log('🔍 Bulk Upload with Conflicts - Processing...');
+    
+    // Process employees based on resolutions
+    const employeesToProcess: Omit<Employee, 'id' | 'sNo' | 'lastUpdated'>[] = [];
+    const employeesToUpdate: { id: string; data: Partial<Employee> }[] = [];
+
+    // Create resolution map
+    const resolutionMap = new Map<string, ConflictResolution>();
+    resolutions.forEach((resolution, index) => {
+      resolutionMap.set(`conflict-${index}`, resolution);
+    });
+
+    // Process each employee data
+    employeesData.forEach((employeeData, index) => {
+      const conflictId = `conflict-${index}`;
+      const resolution = resolutionMap.get(conflictId);
+
+      if (resolution && resolution.action === 'use_excel') {
+        // Find the existing employee ID from conflicts
+        const conflict = conflicts.find(c => c.rowNumber === index + 2);
+        if (conflict && conflict.existingEmployee) {
+          employeesToUpdate.push({
+            id: conflict.existingEmployee.id,
+            data: employeeData
+          });
+        }
+      } else if (!resolution) {
+        // This is a new employee (no conflict)
+        employeesToProcess.push(employeeData);
+      }
+      // If action is 'keep_existing', skip this employee
+    });
+
+    const results: Employee[] = [];
+
+    // Use bulk API for new employees
+    if (employeesToProcess.length > 0) {
+      console.log(`🚀 Creating ${employeesToProcess.length} new employees`);
+      const { EmployeeApi } = await import('./api/employeeApi');
+      const response = await EmployeeApi.bulkCreateEmployees(employeesToProcess, 'skip');
+      if (response.created) {
+        results.push(...response.created.map((emp: any) => this.mapDatabaseRowToEmployee(emp)));
+      }
+    }
+
+    // Update existing employees one by one
+    for (const updateItem of employeesToUpdate) {
+      if (updateItem.id) {
+        console.log(`🔄 Updating existing employee with ID: ${updateItem.id}`);
+        try {
+          const updatedEmployee = await this.updateEmployee(updateItem.id, updateItem.data);
+          results.push(updatedEmployee);
+        } catch (updateError) {
+          console.error(`❌ Failed to update employee ${updateItem.id}:`, updateError);
+        }
+      }
+    }
+
+    console.log(`✅ Bulk upload with conflicts completed: ${results.length} employees processed`);
+    return results;
+    
+    /* OLD SUPABASE CODE - COMMENTED OUT
     console.log('🔍 Bulk Upload with Conflicts - Processing projects...');
 
     // ✅ FIX: Extract and ensure ALL projects exist first (including from conflicted employees)
@@ -586,13 +632,19 @@ private static safeDateValue(dateValue: any): string | null {
     employeeProjects: employeeData.employeeProjects // ✅ CRITICAL: Include employeeProjects
   };
 }
+*/
+  } catch (error) {
+    console.error('Error bulk uploading employees with conflicts:', error);
+    throw error;
+  }
+}
 
   // Bulk upload employees from Excel data
   static async bulkUploadEmployees(employeesData: Omit<Employee, 'id' | 'sNo' | 'lastUpdated'>[]): Promise<Employee[]> {
     try {
-      // Get the current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      // Check authentication
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('User not authenticated');
 
       console.log('🔍 Starting duplicate detection...');
       
@@ -729,91 +781,22 @@ private static safeDateValue(dateValue: any): string | null {
       // Auto-create missing clients and projects
       await this.ensureClientsAndProjectsExist(uniqueClients, uniqueProjects, employeesToProcess);
 
-      // In the regular bulkUploadEmployees method, update the insertData mapping:
-const insertData = employeesToProcess.map(employee => ({
-  employee_id: employee.employeeId,
-  name: employee.name,
-  email: employee.email && employee.email.trim() !== '' ? employee.email : null,
-  department: employee.department,
-  designation: employee.designation,
-  mode_of_management: employee.modeOfManagement,
-  client: employee.client || null,
-  billability_status: employee.billabilityStatus,
-  po_number: employee.poNumber || null,
-  billing: employee.billing || null,
-  last_active_date: this.safeDateValue(employee.lastActiveDate), // ✅ Use safeDateValue
-  projects: employee.projects || null,
-  billability_percentage: employee.billabilityPercentage,
-  project_start_date: employee.projectStartDate && employee.projectStartDate.trim() !== '' 
-    ? this.safeDateValue(employee.projectStartDate) 
-    : null,
-  project_end_date: employee.projectEndDate && employee.projectEndDate.trim() !== '' 
-    ? this.safeDateValue(employee.projectEndDate) 
-    : null,
-  experience_band: employee.experienceBand,
-  rate: employee.rate,
-  ageing: employee.ageing,
-  bench_days: employee.benchDays,
-  phone_number: employee.phoneNumber || null,
-  emergency_contact: employee.emergencyContact || null,
-  ctc: employee.ctc,
-  remarks: employee.remarks || null,
-  last_modified_by: user.id,
-  position: employee.position || null,
-  joining_date: this.safeDateValue(employee.joiningDate), // ✅ Use safeDateValue
-  location: employee.location || null,
-  manager: employee.manager || null,
-  skills: employee.skills || [],
-  date_of_separation: this.safeDateValue(employee.dateOfSeparation),
-}));
-      console.log('🚀 Attempting to insert', insertData.length, 'employees into database...');
+      // Use MongoDB bulk API
+      console.log('🚀 Attempting to insert', employeesToProcess.length, 'employees into database...');
 
-      const { data, error } = await supabase
-        .from('employees')
-        .insert(insertData)
-        .select();
-
-      if (error) {
-        console.error('❌ Supabase error:', error);
-        
-        if (error.code === '23505') {
-          if (error.message.includes('employees_email_key')) {
-            throw new Error('DUPLICATE_EMAIL: One or more employees with the same email already exist in the system.');
-          } else if (error.message.includes('employees_employee_id_key')) {
-            throw new Error('DUPLICATE_EMPLOYEE_ID: One or more employees with the same Employee ID already exist in the system.');
-          }
-        }
-        
-        throw error;
+      const { EmployeeApi } = await import('./api/employeeApi');
+      const response = await EmployeeApi.bulkCreateEmployees(employeesToProcess, 'skip');
+      
+      if (!response || !response.details) {
+        throw new Error('Failed to save employees to database');
       }
 
-      console.log('✅ Successfully inserted', data?.length, 'employees');
+      console.log('✅ Successfully inserted', response.details.created.length, 'employees');
 
-      // Get the user's name for the response
-      const { data: userProfile } = await supabase
-        .from('user_profiles')
-        .select('name')
-        .eq('id', user.id)
-        .single();
-
-      const mappedEmployees = data.map(emp => ({
-        ...this.mapDatabaseRowToEmployee(emp),
-        lastModifiedBy: userProfile?.name || user.id
-      }));
-
-      // Create employee-project relationships
-      await this.createEmployeeProjectRelationships(mappedEmployees);
-
-      // Create notification for bulk upload
-      try {
-        await NotificationService.createBulkUploadNotification(
-          mappedEmployees.length,
-          user.id,
-          ['Admin', 'Lead', 'HR']
-        );
-      } catch (notificationError) {
-        console.warn('Failed to create notification for bulk upload:', notificationError);
-      }
+      // Map the created employees
+      const mappedEmployees = response.details.created.map((emp: any) => 
+        this.mapDatabaseRowToEmployee(emp)
+      );
 
       return mappedEmployees;
     } catch (error) {
@@ -1096,6 +1079,12 @@ const insertData = employeesToProcess.map(employee => ({
 
   private static async ensureClientsAndProjectsExist(clients: string[], projects: string[], employeesData?: Omit<Employee, 'id' | 'sNo' | 'lastUpdated'>[]): Promise<void> {
   try {
+    // TODO: Migrate to MongoDB API
+    // For now, skip client/project creation during bulk upload
+    console.log('⚠️ ensureClientsAndProjectsExist not yet migrated to MongoDB API - skipping');
+    return;
+    
+    /* OLD SUPABASE CODE - TO BE MIGRATED
     const { ProjectService } = await import('./projectService');
 
     const validClients = clients.filter(client => client != null && String(client).trim() !== '');
@@ -1204,6 +1193,7 @@ const insertData = employeesToProcess.map(employee => ({
       
       console.log(`🎉 Created ${createdProjectsCount} new projects during bulk upload`);
     }
+    */
   } catch (error) {
     console.error('Error ensuring clients and projects exist:', error);
   }
@@ -1211,6 +1201,12 @@ const insertData = employeesToProcess.map(employee => ({
 
   private static async createEmployeeProjectRelationships(employees: Employee[]): Promise<void> {
   try {
+    // TODO: Migrate to MongoDB API
+    // For now, skip project relationship creation during bulk upload
+    console.log('⚠️ createEmployeeProjectRelationships not yet migrated to MongoDB API - skipping');
+    return;
+    
+    /* OLD SUPABASE CODE - TO BE MIGRATED
     console.log('🔗 Creating employee-project relationships for:', employees.length, 'employees');
     
     // Get ALL projects (including newly created ones)
@@ -1332,6 +1328,7 @@ const insertData = employeesToProcess.map(employee => ({
     } else {
       console.log('ℹ️ No employee-project relationships to create');
     }
+    */
   } catch (error) {
     console.error('❌ Error creating employee-project relationships:', error);
   }
@@ -1366,7 +1363,7 @@ const insertData = employeesToProcess.map(employee => ({
     }
 
     return {
-      id: row.id,
+      id: row._id || row.id, // MongoDB uses _id
       sNo: row.s_no,
       employeeId: safeString(row.employee_id),
       name: safeString(row.name),
