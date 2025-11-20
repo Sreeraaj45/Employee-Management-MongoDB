@@ -164,24 +164,42 @@ export const BulkUpload: React.FC<BulkUploadProps> = ({ onUpload }) => {
       setProcessingSteps(prev => [...prev, `Saving ${employees.length} employees to database...`]);
       setProgressPercentage(60);
 
-      // Use the bulkUploadEmployees function from useEmployees hook
-      const saveResult = await bulkUploadEmployees(employees);
-      console.log('Bulk upload result:', saveResult);
+      // Simulate progress during upload
+      const progressInterval = setInterval(() => {
+        setProgressPercentage(prev => {
+          if (prev < 95) return prev + 5;
+          return prev;
+        });
+      }, 200);
 
-      // Only show success after database operation is complete
-      const savedCount = Array.isArray(saveResult) ? saveResult.length : 0;
-      setUploadedCount(savedCount);
-      setProgressPercentage(100);
+      let savedCount = 0;
+      try {
+        // Use the bulkUploadEmployees function from useEmployees hook
+        const saveResult = await bulkUploadEmployees(employees);
+        console.log('Bulk upload result:', saveResult);
+
+        // Clear progress interval
+        clearInterval(progressInterval);
+
+        // Only show success after database operation is complete
+        savedCount = Array.isArray(saveResult) ? saveResult.length : 0;
+        setUploadedCount(savedCount);
+        setProgressPercentage(100);
+      } catch (error) {
+        clearInterval(progressInterval);
+        throw error;
+      }
       
-      // Add a small delay to ensure state updates
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
+      // Show success message first
       setUploadStatus('success');
       setUploadMessage(`Successfully processed and saved ${savedCount} employees to database`);
       setUploadProgress('');
       setProcessingSteps([]);
       
-      // Also call onUpload for any parent component handling
+      // Add delay to show success message before calling parent callback
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Call onUpload for any parent component handling (this might trigger navigation)
       onUpload(employees);
       
     } catch (error) {
