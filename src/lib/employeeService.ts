@@ -792,20 +792,14 @@ private static safeDateValue(dateValue: any): string | null {
         const { ClientApi } = await import('./api/clientApi');
         const { ProjectApi } = await import('./api/projectApi');
 
-        // Create missing clients
+        // Create missing clients (Note: Clients are created automatically when projects are created)
+        console.log(`📋 Found ${uniqueClients.length} unique clients in upload`);
         if (uniqueClients.length > 0) {
           const existingClients = await ClientApi.getAllClients();
+          console.log(`📋 Existing clients in database: ${existingClients.length}`);
           const existingClientNames = new Set(existingClients.map(c => c.toLowerCase()));
           const missingClients = uniqueClients.filter(client => !existingClientNames.has(client.toLowerCase()));
-
-          for (const client of missingClients) {
-            try {
-              await ClientApi.addClient(client);
-              console.log(`✅ Created new client: ${client}`);
-            } catch (error) {
-              console.warn(`❌ Failed to create client ${client}:`, error);
-            }
-          }
+          console.log(`📋 Missing clients to be created via projects: ${missingClients.length}`, missingClients);
         }
 
         // Create missing projects
@@ -826,35 +820,40 @@ private static safeDateValue(dateValue: any): string | null {
           });
 
           if (projectClientCombinations.size > 0) {
+            console.log(`📋 Found ${projectClientCombinations.size} unique project-client combinations`);
             const allExistingProjects = await ProjectApi.getAllProjects();
+            console.log(`📋 Existing projects in database: ${allExistingProjects.length}`);
             const existingProjectKeys = new Set(
               allExistingProjects.map(p => `${p.client}|${p.name}`.toLowerCase())
             );
 
             let createdProjectsCount = 0;
+            let skippedProjectsCount = 0;
             for (const combination of projectClientCombinations) {
               const [client, projectName] = combination.split('|');
               const key = `${client}|${projectName}`.toLowerCase();
               
               if (!existingProjectKeys.has(key)) {
                 try {
-                  await ProjectApi.createProject({
+                  console.log(`🔨 Creating project: "${projectName}" for client "${client}"`);
+                  const result = await ProjectApi.createProject({
                     name: projectName,
                     client: client,
                     status: 'Active',
                     start_date: new Date().toISOString().split('T')[0],
                   });
                   createdProjectsCount++;
-                  console.log(`✅ Created new project: "${projectName}" for client "${client}"`);
+                  console.log(`✅ Created new project: "${projectName}" for client "${client}"`, result);
                 } catch (error) {
-                  console.warn(`❌ Failed to create project "${projectName}" for client "${client}":`, error);
+                  console.error(`❌ Failed to create project "${projectName}" for client "${client}":`, error);
                 }
+              } else {
+                skippedProjectsCount++;
+                console.log(`⏭️ Skipping existing project: "${projectName}" for client "${client}"`);
               }
             }
             
-            if (createdProjectsCount > 0) {
-              console.log(`🎉 Created ${createdProjectsCount} new projects during bulk upload`);
-            }
+            console.log(`🎉 Project creation summary: ${createdProjectsCount} created, ${skippedProjectsCount} skipped`);
           }
         }
       } catch (error) {
@@ -1329,16 +1328,16 @@ private static safeDateValue(dateValue: any): string | null {
       lastActiveDate: formatDate(row.last_active_date),
       // ✅ FIXED: Use cleaned projects field without PO numbers
       projects: cleanProjectsField(row.projects),
-      billabilityPercentage: row.billability_percentage,
+      billabilityPercentage: row.billability_percentage || 0,
       projectStartDate: formatDate(row.project_start_date),
       projectEndDate: formatDate(row.project_end_date),
       experienceBand: safeString(row.experience_band),
-      rate: row.rate,
-      ageing: row.ageing,
-      benchDays: correctedBenchDays, // ✅ Use corrected bench days
+      rate: row.rate || 0,
+      ageing: row.ageing || 0,
+      benchDays: correctedBenchDays || 0, // ✅ Use corrected bench days
       phoneNumber: safeString(row.phone_number),
       emergencyContact: safeString(row.emergency_contact),
-      ctc: row.ctc,
+      ctc: row.ctc || 0,
       remarks: safeString(row.remarks),
       lastModifiedBy: typeof row.last_modified_by === 'object' && row.last_modified_by?.name 
         ? row.last_modified_by.name 

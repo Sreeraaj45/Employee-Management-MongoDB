@@ -74,24 +74,67 @@ export class ProjectService {
     billing_type?: string | null;
     team_size: number;
   }> {
-    const { data, error } = await supabase
-      .from('projects')
-      .select('id, name, client, description, department, start_date, end_date, status, po_number, currency, billing_type, team_size')
-      .eq('id', projectId)
-      .single();
-    if (error) throw error;
-    return data as any;
+    try {
+      const { ProjectApi } = await import('./api/projectApi');
+      const project = await ProjectApi.getProjectById(projectId);
+      return {
+        id: project._id || project.id || '',
+        name: project.name,
+        client: project.client,
+        description: project.description || null,
+        department: project.department || null,
+        start_date: project.start_date,
+        end_date: project.end_date || null,
+        status: project.status,
+        po_number: project.po_number || null,
+        currency: project.currency || null,
+        billing_type: project.billing_type || null,
+        team_size: project.team_size || 0
+      };
+    } catch (error) {
+      console.error('Error fetching project by ID:', error);
+      throw error;
+    }
   }
 
   static async getClientsWithProjects(): Promise<ClientWithProjects[]> {
-  try {
-    // TODO: Migrate to MongoDB API
-    // For now, return empty array to prevent errors
-    console.warn('getClientsWithProjects not yet migrated to MongoDB API');
-    return [];
-  } catch (error) {
-    console.error('Error in getClientsWithProjects:', error);
-    return [];
+    try {
+      // Get all projects from MongoDB
+      const projects = await this.getAllProjects();
+      
+      // Group projects by client
+      const clientMap = new Map<string, ClientWithProjects>();
+      
+      for (const project of projects) {
+        if (!clientMap.has(project.client)) {
+          clientMap.set(project.client, {
+            client: project.client,
+            totalEmployees: 0,
+            projects: []
+          });
+        }
+        
+        const clientData = clientMap.get(project.client)!;
+        clientData.projects.push({
+          id: project.id,
+          name: project.name,
+          status: project.status,
+          teamSize: project.team_size || 0,
+          employeeCount: project.team_size || 0,
+          poNumber: project.po_number || null
+        });
+      }
+      
+      // Convert map to array and sort by client name
+      const result = Array.from(clientMap.values()).sort((a, b) => 
+        a.client.localeCompare(b.client)
+      );
+      
+      return result;
+    } catch (error) {
+      console.error('Error in getClientsWithProjects:', error);
+      return [];
+    }
   }
   
   // OLD SUPABASE CODE - TO BE MIGRATED
@@ -278,9 +321,14 @@ export class ProjectService {
 
   return Object.values(grouped).sort((a, b) => a.client.localeCompare(b.client));
   */
-}
 
   static async getProjectEmployees(projectId: string): Promise<Employee[]> {
+    // TODO: Implement with MongoDB API when employee-project relationships are migrated
+    // For now, return empty array
+    console.warn('getProjectEmployees not yet migrated to MongoDB - employee-project relationships not implemented');
+    return [];
+    
+    /* OLD SUPABASE CODE - TO BE MIGRATED
     const { data: project, error: pErr } = await supabase
       .from('projects')
       .select('client, name')
@@ -362,6 +410,7 @@ export class ProjectService {
       skills: row.skills || []
     };
   });
+  */
   }
 
   static async getClientEmployees(clientName: string): Promise<Employee[]> {
