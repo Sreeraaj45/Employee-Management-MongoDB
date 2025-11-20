@@ -10,6 +10,13 @@ export const useEmployees = () => {
 
   // Fetch all employees
   const fetchEmployees = useCallback(async () => {
+    // Check if user is authenticated before fetching
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);

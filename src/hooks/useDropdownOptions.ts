@@ -7,26 +7,30 @@ export const useDropdownOptions = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchOptions = async () => {
+    // Check if user is authenticated before fetching
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const data = await DropdownApi.getAllOptions();
 
+      // Data is already grouped by field_name from the backend
       const groupedOptions: { [key: string]: DropdownOption[] } = {};
-      data.forEach((option: any) => {
-        const mappedOption: DropdownOption = {
+      
+      Object.keys(data).forEach((fieldName) => {
+        groupedOptions[fieldName] = data[fieldName].map((option: any) => ({
           id: option._id,
-          fieldName: option.field_name,
+          fieldName: fieldName,
           optionValue: option.option_value,
           displayOrder: option.display_order,
-          isActive: option.is_active,
-          createdBy: option.created_by,
+          isActive: true,
+          createdBy: undefined,
           createdAt: option.created_at,
           updatedAt: option.updated_at
-        };
-
-        if (!groupedOptions[option.field_name]) {
-          groupedOptions[option.field_name] = [];
-        }
-        groupedOptions[option.field_name].push(mappedOption);
+        }));
       });
 
       setOptions(groupedOptions);

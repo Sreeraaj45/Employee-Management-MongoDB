@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+// import { supabase } from './supabase'; // Migrated to MongoDB API
 import { Employee, EmployeeProject, ConflictResolution, ConflictData } from '../types';
 import { NotificationService } from './notificationService';
 import { POAmendment } from './projectService';
@@ -1392,7 +1392,9 @@ const insertData = employeesToProcess.map(employee => ({
       emergencyContact: safeString(row.emergency_contact),
       ctc: row.ctc,
       remarks: safeString(row.remarks),
-      lastModifiedBy: safeString(row.last_modified_by),
+      lastModifiedBy: typeof row.last_modified_by === 'object' && row.last_modified_by?.name 
+        ? row.last_modified_by.name 
+        : safeString(row.last_modified_by),
       lastUpdated: row.updated_at,
       position: safeString(row.position),
       joiningDate: safeString(row.joining_date),

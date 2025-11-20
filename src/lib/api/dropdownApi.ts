@@ -11,13 +11,13 @@ export interface DropdownOption {
 }
 
 export class DropdownApi {
-  static async getAllOptions(fieldName?: string): Promise<DropdownOption[]> {
+  static async getAllOptions(fieldName?: string): Promise<{ [key: string]: DropdownOption[] }> {
     try {
       const endpoint = fieldName 
         ? `/api/dropdowns?field_name=${encodeURIComponent(fieldName)}`
         : '/api/dropdowns';
-      const response = await apiClient.get<{ options: DropdownOption[] }>(endpoint);
-      return response.options;
+      const response = await apiClient.get<{ dropdowns: { [key: string]: any[] } }>(endpoint);
+      return response.dropdowns || {};
     } catch (error) {
       console.error('Error fetching dropdown options:', error);
       throw error;

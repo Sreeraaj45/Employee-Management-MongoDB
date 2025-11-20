@@ -78,10 +78,11 @@ function AppContent() {
     }
   };
   
-  useEffect(() => {
-    // Migrate existing default project names
-    ProjectService.migrateDefaultProjectNames();
-  }, []);
+  // Commented out - needs migration to MongoDB API
+  // useEffect(() => {
+  //   // Migrate existing default project names
+  //   ProjectService.migrateDefaultProjectNames();
+  // }, []);
 
   // Initialize page from URL on mount
   useEffect(() => {
