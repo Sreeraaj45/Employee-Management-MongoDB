@@ -15,19 +15,66 @@ validateEnv();
 // Initialize Express app
 const app = express();
 
-// Connect to MongoDB
-connectDB();
+// Import initialization service
+import InitializationService from './services/initializationService.js';
+
+// Connect to MongoDB and run initialization
+connectDB().then(async () => {
+  // Run initialization tasks (create default admin if needed)
+  try {
+    await InitializationService.initialize();
+  } catch (error) {
+    console.error('Failed to run initialization:', error);
+  }
+});
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Import routes
+import authRoutes from './routes/authRoutes.js';
+import employeeRoutes from './routes/employeeRoutes.js';
+import projectRoutes from './routes/projectRoutes.js';
+import clientRoutes from './routes/clientRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import dashboardRoutes from './routes/dashboardRoutes.js';
+import dropdownRoutes from './routes/dropdownRoutes.js';
+import financialRoutes from './routes/financialRoutes.js';
+
 // API Routes
-// TODO: Add API routes here
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
+
+// Auth routes
+app.use('/api/auth', authRoutes);
+
+// Employee routes
+app.use('/api/employees', employeeRoutes);
+
+// Project routes
+app.use('/api/projects', projectRoutes);
+
+// Client routes
+app.use('/api/clients', clientRoutes);
+
+// Notification routes
+app.use('/api/notifications', notificationRoutes);
+
+// User management routes
+app.use('/api/users', userRoutes);
+
+// Dashboard routes
+app.use('/api/dashboard', dashboardRoutes);
+
+// Dropdown routes
+app.use('/api/dropdowns', dropdownRoutes);
+
+// Financial routes
+app.use('/api/financial', financialRoutes);
 
 // Serve static files from the React app in production
 if (config.nodeEnv === 'production') {
