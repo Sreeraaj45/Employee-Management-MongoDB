@@ -15,7 +15,7 @@ import { UserManagement } from './components/Settings/UserManagement';
 import { PasswordChange } from './components/Settings/PasswordChange';
 import { Employee } from './types';
 import Projects from './components/Projects/Projects';
-import { POScheduler } from './lib/poScheduler';
+// import { POScheduler } from './lib/poScheduler'; // Disabled - not yet migrated to MongoDB
 import { Menu } from 'lucide-react';
 import { ProjectService } from './lib/projectService';
 export default App;
@@ -103,19 +103,11 @@ function AppContent() {
 
   // ✅ ADD PO SCHEDULER HERE - Run when user is authenticated
   useEffect(() => {
-    const initializePOScheduler = async () => {
-      if (user) {
-        try {
-          console.log('🔄 Initializing PO scheduler...');
-          const result = await POScheduler.recalculateAllActivePOs();
-          console.log('✅ PO scheduler completed:', result);
-        } catch (error) {
-          console.error('❌ PO scheduler failed:', error);
-        }
-      }
-    };
-
-    initializePOScheduler();
+    // PO scheduler disabled - not yet migrated to MongoDB
+    // TODO: Implement PO scheduler with MongoDB API
+    if (user) {
+      console.log('⚠️ PO scheduler disabled - not yet migrated to MongoDB');
+    }
   }, [user]);
 
   // Refetch employees after login/auth ready to avoid initial 0 metrics

@@ -4,8 +4,13 @@ import { NotificationService } from './notificationService';
 import { POAmendment } from './projectService';
 
 export class EmployeeService {
-  // Get PO amendments for multiple projects
+  // Get PO amendments for multiple projects - TO BE MIGRATED TO MONGODB
   static async getPOAmendmentsForProjects(projectIds: string[]): Promise<{ [projectId: string]: POAmendment[] }> {
+    // TODO: Implement with MongoDB API
+    console.warn('getPOAmendmentsForProjects not yet migrated to MongoDB');
+    return {};
+    
+    /* OLD SUPABASE CODE - TO BE MIGRATED
     if (projectIds.length === 0) return {};
 
     const { data, error } = await supabase
@@ -28,6 +33,7 @@ export class EmployeeService {
     });
 
     return amendmentsByProject;
+    */
   }
 
   // Get all employees with user names and project relationships
@@ -263,8 +269,13 @@ private static safeDateValue(dateValue: any): string | null {
   // If we can't parse it as a valid date, return null
   return null;
 }
-  // Update employee project assignments
+  // Update employee project assignments - TO BE MIGRATED TO MONGODB
   static async updateEmployeeProjects(employeeId: string, employeeProjects: EmployeeProject[]): Promise<void> {
+    // TODO: Implement with MongoDB API
+    console.warn('updateEmployeeProjects not yet migrated to MongoDB');
+    return;
+    
+    /* OLD SUPABASE CODE - TO BE MIGRATED
     try {
       // First, delete all existing project assignments for this employee
       const { error: deleteError } = await supabase
@@ -300,6 +311,7 @@ private static safeDateValue(dateValue: any): string | null {
       console.error('Error updating employee projects:', error);
       throw error;
     }
+    */
   }
 
   // Delete employee
@@ -451,7 +463,7 @@ private static safeDateValue(dateValue: any): string | null {
       clients: uniqueClients
     });
 
-    await this.ensureClientsAndProjectsExist(uniqueClients, uniqueProjects, employeesData);
+    await EmployeeService.ensureClientsAndProjectsExist(uniqueClients, uniqueProjects, employeesData);
 
     // Process employees based on resolutions
     const employeesToInsert: Omit<Employee, 'id' | 'sNo' | 'lastUpdated'>[] = [];
@@ -685,9 +697,12 @@ private static safeDateValue(dateValue: any): string | null {
 
       console.log('📊 Existing emails count:', existingEmails.size);
       console.log('📊 Existing employee IDs count:', existingEmployeeIds.size);
+      console.log('📊 Total employees in upload:', employeesData.length);
 
-      // Filter out duplicates with ULTRA SAFETY
+      // Filter out duplicates - only check within current batch, not against existing DB
       const uniqueEmailsInBatch = new Set();
+      const uniqueEmployeeIdsInBatch = new Set();
+      
       const employeesToProcess = employeesData.filter(employee => {
         try {
           // ✅ SAFE: Process current employee data
@@ -724,26 +739,20 @@ private static safeDateValue(dateValue: any): string | null {
             return false;
           }
 
-          // ✅ Check 2: Check for duplicate employee ID in existing database
-          if (existingEmployeeIds.has(employeeIdLower)) {
-            console.warn(`❌ Skipping employee with existing ID: ${employee.employeeId}`);
+          // ✅ Check 2: Check for duplicate employee ID within current batch only
+          if (uniqueEmployeeIdsInBatch.has(employeeIdLower)) {
+            console.warn(`❌ Skipping duplicate employee ID in batch: ${employee.employeeId}`);
             return false;
           }
+          uniqueEmployeeIdsInBatch.add(employeeIdLower);
 
-          // ✅ Check 3: If email exists, check for duplicates
+          // ✅ Check 3: If email exists, check for duplicates within batch only
           if (emailLower && emailLower !== '') {
             // Check for duplicate email in current batch
             if (uniqueEmailsInBatch.has(emailLower)) {
               console.warn(`❌ Skipping duplicate email in current batch: ${employee.email}`);
               return false;
             }
-            
-            // Check for conflict with existing employees
-            if (existingEmails.has(emailLower)) {
-              console.warn(`❌ Skipping employee with existing email: ${employee.email}`);
-              return false;
-            }
-            
             uniqueEmailsInBatch.add(emailLower);
           }
 
@@ -779,7 +788,78 @@ private static safeDateValue(dateValue: any): string | null {
       console.log('📊 Total employees to process:', employeesToProcess.length);
 
       // Auto-create missing clients and projects
-      await this.ensureClientsAndProjectsExist(uniqueClients, uniqueProjects, employeesToProcess);
+      try {
+        const { ClientApi } = await import('./api/clientApi');
+        const { ProjectApi } = await import('./api/projectApi');
+
+        // Create missing clients
+        if (uniqueClients.length > 0) {
+          const existingClients = await ClientApi.getAllClients();
+          const existingClientNames = new Set(existingClients.map(c => c.toLowerCase()));
+          const missingClients = uniqueClients.filter(client => !existingClientNames.has(client.toLowerCase()));
+
+          for (const client of missingClients) {
+            try {
+              await ClientApi.addClient(client);
+              console.log(`✅ Created new client: ${client}`);
+            } catch (error) {
+              console.warn(`❌ Failed to create client ${client}:`, error);
+            }
+          }
+        }
+
+        // Create missing projects
+        if (employeesToProcess.length > 0) {
+          const projectClientCombinations = new Set<string>();
+          
+          employeesToProcess.forEach(employee => {
+            const employeeClient = employee.client ? String(employee.client).trim() : '';
+            
+            if (employee.projects && String(employee.projects).trim() !== '') {
+              const projectNames = employee.projects.split(';').map(p => p.trim()).filter(p => p);
+              projectNames.forEach(projectName => {
+                if (employeeClient && projectName) {
+                  projectClientCombinations.add(`${employeeClient}|${projectName}`);
+                }
+              });
+            }
+          });
+
+          if (projectClientCombinations.size > 0) {
+            const allExistingProjects = await ProjectApi.getAllProjects();
+            const existingProjectKeys = new Set(
+              allExistingProjects.map(p => `${p.client}|${p.name}`.toLowerCase())
+            );
+
+            let createdProjectsCount = 0;
+            for (const combination of projectClientCombinations) {
+              const [client, projectName] = combination.split('|');
+              const key = `${client}|${projectName}`.toLowerCase();
+              
+              if (!existingProjectKeys.has(key)) {
+                try {
+                  await ProjectApi.createProject({
+                    name: projectName,
+                    client: client,
+                    status: 'Active',
+                    start_date: new Date().toISOString().split('T')[0],
+                  });
+                  createdProjectsCount++;
+                  console.log(`✅ Created new project: "${projectName}" for client "${client}"`);
+                } catch (error) {
+                  console.warn(`❌ Failed to create project "${projectName}" for client "${client}":`, error);
+                }
+              }
+            }
+            
+            if (createdProjectsCount > 0) {
+              console.log(`🎉 Created ${createdProjectsCount} new projects during bulk upload`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error auto-creating clients and projects:', error);
+      }
 
       // Use MongoDB bulk API
       console.log('🚀 Attempting to insert', employeesToProcess.length, 'employees into database...');
@@ -792,6 +872,25 @@ private static safeDateValue(dateValue: any): string | null {
       }
 
       console.log('✅ Successfully inserted', response.details.created.length, 'employees');
+      console.log('⚠️ Skipped', response.details.skipped.length, 'employees (already exist)');
+      console.log('❌ Failed', response.details.errors.length, 'employees');
+      
+      // Log detailed errors for debugging
+      if (response.details.errors.length > 0) {
+        console.error('First 10 errors with details:');
+        response.details.errors.slice(0, 10).forEach((err: any, index: number) => {
+          console.error(`  ${index + 1}. Employee ID: ${err.employee_id}`);
+          console.error(`     Error: ${err.error}`);
+        });
+      }
+      
+      // Log skipped employees
+      if (response.details.skipped.length > 0) {
+        console.warn('First 10 skipped employees:');
+        response.details.skipped.slice(0, 10).forEach((skip: any, index: number) => {
+          console.warn(`  ${index + 1}. Employee ID: ${skip.employee_id} - Reason: ${skip.reason}`);
+        });
+      }
 
       // Map the created employees
       const mappedEmployees = response.details.created.map((emp: any) => 
@@ -805,8 +904,13 @@ private static safeDateValue(dateValue: any): string | null {
     }
   }
 
-  // Search employees
+  // Search employees - TO BE MIGRATED TO MONGODB
   static async searchEmployees(query: string): Promise<Employee[]> {
+    // TODO: Implement with MongoDB API
+    console.warn('searchEmployees not yet migrated to MongoDB');
+    return [];
+    
+    /* OLD SUPABASE CODE - TO BE MIGRATED
     try {
       // First search employees
       const { data: employees, error: employeesError } = await supabase
@@ -849,52 +953,20 @@ private static safeDateValue(dateValue: any): string | null {
     }
   }
 
-  // Get employees by department
+  // Get employees by department - TO BE MIGRATED TO MONGODB
   static async getEmployeesByDepartment(department: string): Promise<Employee[]> {
-    try {
-      // First get employees by department
-      const { data: employees, error: employeesError } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('department', department)
-        .order('s_no', { ascending: true });
-
-      if (employeesError) throw employeesError;
-
-      // Get unique user IDs from employees
-      const userIds = [...new Set(employees
-        .map(emp => emp.last_modified_by)
-        .filter(Boolean))] as string[];
-
-      // Get user profiles for these IDs
-      let userProfiles: { [key: string]: string } = {};
-      if (userIds.length > 0) {
-        const { data: profiles, error: profilesError } = await supabase
-          .from('user_profiles')
-          .select('id, name')
-          .in('id', userIds);
-
-        if (profilesError) throw profilesError;
-        
-        userProfiles = profiles?.reduce((acc, profile) => {
-          acc[profile.id] = profile.name;
-          return acc;
-        }, {} as { [key: string]: string }) || {};
-      }
-
-      // Map employees with user names
-      return employees.map(emp => ({
-        ...this.mapDatabaseRowToEmployee(emp),
-        lastModifiedBy: userProfiles[emp.last_modified_by] || emp.last_modified_by
-      }));
-    } catch (error) {
-      console.error('Error fetching employees by department:', error);
-      throw error;
-    }
+    // TODO: Implement with MongoDB API
+    console.warn('getEmployeesByDepartment not yet migrated to MongoDB');
+    return [];
   }
 
-  // Get employees by billability status
+  // Get employees by billability status - TO BE MIGRATED TO MONGODB
   static async getEmployeesByStatus(status: string): Promise<Employee[]> {
+    // TODO: Implement with MongoDB API
+    console.warn('getEmployeesByStatus not yet migrated to MongoDB');
+    return [];
+    
+    /* OLD SUPABASE CODE - TO BE MIGRATED
     try {
       // First get employees by status
       const { data: employees, error: employeesError } = await supabase
@@ -937,74 +1009,12 @@ private static safeDateValue(dateValue: any): string | null {
     }
   }
 
-  // Add this method to EmployeeService
+  // Auto-update employee status - Disabled until PO amendments are migrated to MongoDB
   static async autoUpdateEmployeeStatus(employee: Employee): Promise<Employee | null> {
-    try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      // Check if employee has any active projects with active POs
-      const hasActivePO = employee.employeeProjects?.some(project => {
-        // Check if project has active PO amendments
-        const hasActiveAmendment = project.poAmendments?.some(amendment => amendment.is_active) || false;
-
-        // Check if main PO is active
-        const isMainPOActive = this.isPOActive(project.startDate, project.endDate || undefined);
-
-        return hasActiveAmendment || isMainPOActive;
-      });
-
-      // Support functions logic
-      const isSupportFunction = employee.modeOfManagement === 'SUPPORT_FUNCTIONS';
-      
-      let newStatus = employee.billabilityStatus;
-
-      if (isSupportFunction) {
-        if (employee.billabilityStatus === 'Bench') {
-          newStatus = 'NA';
-        }
-      } else {
-        // Regular employees - check if they have active PO (main or amendments)
-        if (!hasActivePO && employee.billabilityStatus === 'Billable') {
-          newStatus = 'Bench';
-        } else if (hasActivePO && employee.billabilityStatus === 'Bench') {
-          newStatus = 'Billable';
-        }
-      }
-
-      // Only update if status has changed
-      if (newStatus !== employee.billabilityStatus) {
-        console.log(`🔄 Auto-updating ${employee.name} from ${employee.billabilityStatus} to ${newStatus}`);
-        
-        const updatedEmployee = await this.updateEmployee(employee.id, {
-          billabilityStatus: newStatus
-        });
-
-        // // Create notification for status change
-        // try {
-        //   const { data: { user } } = await supabase.auth.getUser();
-        //   if (user) {
-        //     await NotificationService.createEmployeeNotification(
-        //       'status_updated',
-        //       employee.name,
-        //       employee.employeeId,
-        //       user.id,
-        //       ['Admin', 'Lead', 'HR'],
-        //       `Automatically changed from ${employee.billabilityStatus} to ${newStatus} due to PO status`
-        //     );
-        //   }
-        // } catch (notificationError) {
-        //   console.warn('Failed to create notification for status update:', notificationError);
-        // }
-
-        return updatedEmployee;
-      }
-
-      return null;
-    } catch (error) {
-      console.error(`Error auto-updating status for ${employee.name}:`, error);
-      return null;
-    }
+    // TODO: Implement with MongoDB API when PO amendments are migrated
+    // For now, just return null (no status update needed)
+    console.log(`⚠️ Auto-update status disabled for ${employee.name}`);
+    return null;
   }
 
   // Helper method to check if PO is active
@@ -1033,174 +1043,103 @@ private static safeDateValue(dateValue: any): string | null {
     return today >= start;
   }
 
-  // Get employees by mode of management
+  // Get employees by mode of management - TO BE MIGRATED TO MONGODB
   static async getEmployeesByMode(mode: string): Promise<Employee[]> {
-    try {
-      // First get employees by mode
-      const { data: employees, error: employeesError } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('mode_of_management', mode)
-        .order('s_no', { ascending: true });
-
-      if (employeesError) throw employeesError;
-
-      // Get unique user IDs from employees
-      const userIds = [...new Set(employees
-        .map(emp => emp.last_modified_by)
-        .filter(Boolean))] as string[];
-
-      // Get user profiles for these IDs
-      let userProfiles: { [key: string]: string } = {};
-      if (userIds.length > 0) {
-        const { data: profiles, error: profilesError } = await supabase
-          .from('user_profiles')
-          .select('id, name')
-          .in('id', userIds);
-
-        if (profilesError) throw profilesError;
-        
-        userProfiles = profiles?.reduce((acc, profile) => {
-          acc[profile.id] = profile.name;
-          return acc;
-        }, {} as { [key: string]: string }) || {};
-      }
-
-      // Map employees with user names
-      return employees.map(emp => ({
-        ...this.mapDatabaseRowToEmployee(emp),
-        lastModifiedBy: userProfiles[emp.last_modified_by] || emp.last_modified_by
-      }));
-    } catch (error) {
-      console.error('Error fetching employees by mode:', error);
-      throw error;
-    }
+    // TODO: Implement with MongoDB API
+    console.warn('getEmployeesByMode not yet migrated to MongoDB');
+    return [];
   }
 
-  private static async ensureClientsAndProjectsExist(clients: string[], projects: string[], employeesData?: Omit<Employee, 'id' | 'sNo' | 'lastUpdated'>[]): Promise<void> {
-  try {
-    // TODO: Migrate to MongoDB API
-    // For now, skip client/project creation during bulk upload
-    console.log('⚠️ ensureClientsAndProjectsExist not yet migrated to MongoDB API - skipping');
-    return;
-    
-    /* OLD SUPABASE CODE - TO BE MIGRATED
-    const { ProjectService } = await import('./projectService');
+  static async ensureClientsAndProjectsExist(clients: string[], projects: string[], employeesData?: Omit<Employee, 'id' | 'sNo' | 'lastUpdated'>[]): Promise<void> {
+    try {
+      const { ClientApi } = await import('./api/clientApi');
+      const { ProjectApi } = await import('./api/projectApi');
 
-    const validClients = clients.filter(client => client != null && String(client).trim() !== '');
-    const validProjects = projects.filter(project => project != null && String(project).trim() !== '');
+      const validClients = clients.filter(client => client != null && String(client).trim() !== '');
+      const validProjects = projects.filter(project => project != null && String(project).trim() !== '');
 
-    console.log('🔍 Ensuring clients and projects exist:', {
-      validClients,
-      validProjects,
-      totalEmployees: employeesData?.length
-    });
-
-    // Create missing clients
-    if (validClients.length > 0) {
-      const { data: existingClients } = await supabase
-        .from('projects')
-        .select('client')
-        .in('client', validClients);
-
-      const existingClientNames = new Set((existingClients || []).map(p => p.client));
-      const missingClients = validClients.filter(client => !existingClientNames.has(client));
-
-      for (const client of missingClients) {
-        try {
-          await ProjectService.addClient({ name: client });
-          console.log(`✅ Created new client: ${client}`);
-        } catch (error) {
-          console.warn(`❌ Failed to create client ${client}:`, error);
-        }
-      }
-    }
-
-    // CRITICAL FIX: Enhanced project creation for new projects
-    if (employeesData && employeesData.length > 0) {
-      console.log(`🚀 Processing ${employeesData.length} employees for project assignments`);
-      
-      // Collect all unique project-client combinations from employee data
-      const projectClientCombinations = new Set<string>();
-      
-      employeesData.forEach(employee => {
-        const employeeClient = employee.client ? String(employee.client).trim() : '';
-        
-        // Handle employeeProjects array (new format)
-        if (employee.employeeProjects && employee.employeeProjects.length > 0) {
-          employee.employeeProjects.forEach(project => {
-            if (project.projectName && project.projectName.trim() !== '') {
-              const projectClient = project.client || employeeClient;
-              if (projectClient && projectClient.trim() !== '') {
-                const key = `${projectClient}|${project.projectName.trim()}`;
-                projectClientCombinations.add(key);
-              }
-            }
-          });
-        }
-        
-        // Handle legacy projects field (fallback)
-        if (employee.projects && employee.projects.trim() !== '') {
-          const projectNames = employee.projects.split(';').map(p => p.trim()).filter(p => p);
-          projectNames.forEach(projectName => {
-            if (employeeClient && employeeClient.trim() !== '') {
-              const key = `${employeeClient}|${projectName}`;
-              projectClientCombinations.add(key);
-            }
-          });
-        }
+      console.log('🔍 Ensuring clients and projects exist:', {
+        validClients,
+        validProjects,
+        totalEmployees: employeesData?.length
       });
 
-      console.log('📋 Project-Client combinations to ensure:', Array.from(projectClientCombinations));
+      // Create missing clients
+      if (validClients.length > 0) {
+        const existingClients = await ClientApi.getAllClients();
+        const existingClientNames = new Set(existingClients.map(c => c.toLowerCase()));
+        const missingClients = validClients.filter(client => !existingClientNames.has(client.toLowerCase()));
 
-      // Get all existing projects
-      const { data: allExistingProjects } = await supabase
-        .from('projects')
-        .select('id, name, client');
-
-      const existingProjectMap = new Map<string, boolean>();
-      if (allExistingProjects) {
-        allExistingProjects.forEach(p => {
-          const key = `${p.client}|${p.name}`;
-          existingProjectMap.set(key, true);
-        });
-      }
-
-      // Create missing projects
-      let createdProjectsCount = 0;
-      for (const combination of projectClientCombinations) {
-        const [client, projectName] = combination.split('|');
-        
-        if (!existingProjectMap.has(combination)) {
+        for (const client of missingClients) {
           try {
-            console.log(`🆕 Creating new project: "${projectName}" for client: "${client}"`);
-            
-            await ProjectService.createProject({
-              name: projectName,
-              client: client,
-              start_date: new Date().toISOString().slice(0, 10),
-              status: 'Active',
-              description: `Auto-created during bulk upload`
-            });
-            
-            createdProjectsCount++;
-            console.log(`✅ Created project: "${projectName}" for client: "${client}"`);
+            await ClientApi.addClient(client);
+            console.log(`✅ Created new client: ${client}`);
           } catch (error) {
-            console.warn(`❌ Failed to create project "${projectName}" for client "${client}":`, error);
+            console.warn(`❌ Failed to create client ${client}:`, error);
           }
         }
       }
-      
-      console.log(`🎉 Created ${createdProjectsCount} new projects during bulk upload`);
+
+      // Create missing projects from employee data
+      if (employeesData && employeesData.length > 0) {
+        console.log(`🚀 Processing ${employeesData.length} employees for project creation`);
+        
+        // Collect all unique project-client combinations from employee data
+        const projectClientCombinations = new Set<string>();
+        
+        employeesData.forEach(employee => {
+          const employeeClient = employee.client ? String(employee.client).trim() : '';
+          
+          // Handle projects field (semicolon-separated)
+          if (employee.projects && String(employee.projects).trim() !== '') {
+            const projectNames = employee.projects.split(';').map(p => p.trim()).filter(p => p);
+            projectNames.forEach(projectName => {
+              if (employeeClient && projectName) {
+                const key = `${employeeClient}|${projectName}`;
+                projectClientCombinations.add(key);
+              }
+            });
+          }
+        });
+
+        console.log(`📋 Found ${projectClientCombinations.size} unique project-client combinations`);
+
+        // Get all existing projects
+        const allExistingProjects = await ProjectApi.getAllProjects();
+        const existingProjectKeys = new Set(
+          allExistingProjects.map(p => `${p.client}|${p.name}`.toLowerCase())
+        );
+
+        // Create missing projects
+        let createdProjectsCount = 0;
+        for (const combination of projectClientCombinations) {
+          const [client, projectName] = combination.split('|');
+          const key = `${client}|${projectName}`.toLowerCase();
+          
+          if (!existingProjectKeys.has(key)) {
+            try {
+              await ProjectApi.createProject({
+                name: projectName,
+                client: client,
+                status: 'Active',
+                start_date: new Date().toISOString().split('T')[0],
+              });
+              createdProjectsCount++;
+              console.log(`✅ Created new project: "${projectName}" for client "${client}"`);
+            } catch (error) {
+              console.warn(`❌ Failed to create project "${projectName}" for client "${client}":`, error);
+            }
+          }
+        }
+        
+        console.log(`🎉 Created ${createdProjectsCount} new projects during bulk upload`);
+      }
+    } catch (error) {
+      console.error('Error ensuring clients and projects exist:', error);
     }
-    */
-  } catch (error) {
-    console.error('Error ensuring clients and projects exist:', error);
   }
-}
 
   private static async createEmployeeProjectRelationships(employees: Employee[]): Promise<void> {
-  try {
     // TODO: Migrate to MongoDB API
     // For now, skip project relationship creation during bulk upload
     console.log('⚠️ createEmployeeProjectRelationships not yet migrated to MongoDB API - skipping');
@@ -1329,17 +1268,29 @@ private static safeDateValue(dateValue: any): string | null {
       console.log('ℹ️ No employee-project relationships to create');
     }
     */
-  } catch (error) {
-    console.error('❌ Error creating employee-project relationships:', error);
   }
-}
 
-    /// Map database row to Employee interface
+  /// Map database row to Employee interface
   private static mapDatabaseRowToEmployee(row: any): Employee {
     // Safe conversion function
     const safeString = (value: any): string => {
       if (value === null || value === undefined) return '';
       return String(value).trim();
+    };
+    
+    // Format date to DD-MM-YYYY
+    const formatDate = (value: any): string => {
+      if (!value) return '';
+      try {
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return '';
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}-${month}-${year}`;
+      } catch {
+        return '';
+      }
     };
 
     // ✅ ADD THIS CLEANING FUNCTION
@@ -1375,12 +1326,12 @@ private static safeDateValue(dateValue: any): string | null {
       billabilityStatus: billabilityStatus,
       poNumber: safeString(row.po_number),
       billing: safeString(row.billing),
-      lastActiveDate: safeString(row.last_active_date),
+      lastActiveDate: formatDate(row.last_active_date),
       // ✅ FIXED: Use cleaned projects field without PO numbers
       projects: cleanProjectsField(row.projects),
       billabilityPercentage: row.billability_percentage,
-      projectStartDate: safeString(row.project_start_date),
-      projectEndDate: safeString(row.project_end_date),
+      projectStartDate: formatDate(row.project_start_date),
+      projectEndDate: formatDate(row.project_end_date),
       experienceBand: safeString(row.experience_band),
       rate: row.rate,
       ageing: row.ageing,
@@ -1394,11 +1345,11 @@ private static safeDateValue(dateValue: any): string | null {
         : safeString(row.last_modified_by),
       lastUpdated: row.updated_at,
       position: safeString(row.position),
-      joiningDate: safeString(row.joining_date),
+      joiningDate: formatDate(row.joining_date),
       location: safeString(row.location),
       manager: safeString(row.manager),
       skills: Array.isArray(row.skills) ? row.skills : [],
-      dateOfSeparation: safeString(row.date_of_separation),
+      dateOfSeparation: formatDate(row.date_of_separation),
     };
   }
 }

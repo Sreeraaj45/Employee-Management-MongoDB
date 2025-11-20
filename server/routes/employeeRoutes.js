@@ -253,15 +253,59 @@ router.post('/bulk', ...authorize(['Admin']), async (req, res) => {
 
     for (const employeeData of employees) {
       try {
-        // Validate required fields
-        if (!employeeData.employee_id || !employeeData.name || !employeeData.email || 
-            !employeeData.department || !employeeData.designation) {
+        // Validate required fields - only employee_id and name are truly required
+        if (!employeeData.employee_id || !employeeData.name) {
           results.errors.push({
             employee_id: employeeData.employee_id || 'unknown',
-            error: 'Missing required fields'
+            error: 'Missing required fields: employee_id and name are required'
           });
           continue;
         }
+        
+        // Set defaults for optional fields if missing
+        if (!employeeData.email) employeeData.email = '';
+        if (!employeeData.department) employeeData.department = 'Not Specified';
+        if (!employeeData.designation) employeeData.designation = 'Not Specified';
+        
+        // Clean numeric fields - convert empty strings to null/undefined
+        const numericFields = ['billability_percentage', 'rate', 'ageing', 'bench_days', 'ctc'];
+        numericFields.forEach(field => {
+          if (employeeData[field] === '' || employeeData[field] === null) {
+            delete employeeData[field];
+          } else if (employeeData[field] !== undefined) {
+            const num = Number(employeeData[field]);
+            if (!isNaN(num)) {
+              employeeData[field] = num;
+            } else {
+              delete employeeData[field];
+            }
+          }
+        });
+        
+        // Convert date fields from DD-MM-YYYY to YYYY-MM-DD or valid Date
+        const dateFields = ['last_active_date', 'project_start_date', 'project_end_date', 'joining_date', 'date_of_separation'];
+        dateFields.forEach(field => {
+          if (employeeData[field] && typeof employeeData[field] === 'string') {
+            const dateStr = employeeData[field].trim();
+            
+            // Check if it's in DD-MM-YYYY format
+            if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+              const [day, month, year] = dateStr.split('-');
+              employeeData[field] = `${year}-${month}-${day}`;
+            }
+            // Check if it's in DD/MM/YYYY format
+            else if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
+              const [day, month, year] = dateStr.split('/');
+              employeeData[field] = `${year}-${month}-${day}`;
+            }
+            // If empty or invalid, remove it
+            else if (dateStr === '' || dateStr === 'null' || dateStr === 'undefined') {
+              delete employeeData[field];
+            }
+          } else if (!employeeData[field]) {
+            delete employeeData[field];
+          }
+        });
 
         // Check if employee exists
         const existingEmployee = await Employee.findOne({ employee_id: employeeData.employee_id });
@@ -299,9 +343,21 @@ router.post('/bulk', ...authorize(['Admin']), async (req, res) => {
         }
       } catch (error) {
         console.error(`Error processing employee ${employeeData.employee_id}:`, error);
+        
+        // Provide more detailed error information
+        let errorMessage = error.message;
+        if (error.name === 'ValidationError') {
+          // Extract validation error details
+          const validationErrors = Object.keys(error.errors || {}).map(key => {
+            return `${key}: ${error.errors[key].message}`;
+          }).join(', ');
+          errorMessage = validationErrors || error.message;
+        }
+        
         results.errors.push({
           employee_id: employeeData.employee_id || 'unknown',
-          error: error.message
+          error: errorMessage,
+          errorType: error.name
         });
       }
     }

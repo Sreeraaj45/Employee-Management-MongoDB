@@ -2,39 +2,63 @@ import { apiClient } from '../apiClient';
 import { Employee } from '../../types';
 
 export class EmployeeApi {
+  // Helper to convert date formats
+  private static convertDateFormat(dateStr: any): string | undefined {
+    if (!dateStr || typeof dateStr !== 'string') return dateStr;
+    
+    const trimmed = dateStr.trim();
+    if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return undefined;
+    
+    // Check if it's in DD-MM-YYYY format
+    if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) {
+      const [day, month, year] = trimmed.split('-');
+      return `${year}-${month}-${day}`;
+    }
+    // Check if it's in DD/MM/YYYY format
+    else if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+      const [day, month, year] = trimmed.split('/');
+      return `${year}-${month}-${day}`;
+    }
+    
+    return trimmed;
+  }
+
   // Transform camelCase to snake_case for backend
   private static toSnakeCase(employeeData: Partial<Employee>): any {
-    return {
-      employee_id: employeeData.employeeId,
-      name: employeeData.name,
-      email: employeeData.email,
-      department: employeeData.department,
-      designation: employeeData.designation,
-      mode_of_management: employeeData.modeOfManagement,
-      client: employeeData.client,
-      billability_status: employeeData.billabilityStatus,
-      po_number: employeeData.poNumber,
-      billing: employeeData.billing,
-      last_active_date: employeeData.lastActiveDate,
-      projects: employeeData.projects,
-      billability_percentage: employeeData.billabilityPercentage,
-      project_start_date: employeeData.projectStartDate,
-      project_end_date: employeeData.projectEndDate,
-      experience_band: employeeData.experienceBand,
-      rate: employeeData.rate,
-      ageing: employeeData.ageing,
-      bench_days: employeeData.benchDays,
-      phone_number: employeeData.phoneNumber,
-      emergency_contact: employeeData.emergencyContact,
-      ctc: employeeData.ctc,
-      remarks: employeeData.remarks,
-      position: employeeData.position,
-      joining_date: employeeData.joiningDate,
-      location: employeeData.location,
-      manager: employeeData.manager,
-      skills: employeeData.skills,
-      date_of_separation: employeeData.dateOfSeparation,
-    };
+    const result: any = {};
+    
+    // Only include fields that are defined
+    if (employeeData.employeeId !== undefined) result.employee_id = employeeData.employeeId;
+    if (employeeData.name !== undefined) result.name = employeeData.name;
+    if (employeeData.email !== undefined) result.email = employeeData.email || '';
+    if (employeeData.department !== undefined) result.department = employeeData.department;
+    if (employeeData.designation !== undefined) result.designation = employeeData.designation;
+    if (employeeData.modeOfManagement !== undefined) result.mode_of_management = employeeData.modeOfManagement;
+    if (employeeData.client !== undefined) result.client = employeeData.client;
+    if (employeeData.billabilityStatus !== undefined) result.billability_status = employeeData.billabilityStatus;
+    if (employeeData.poNumber !== undefined) result.po_number = employeeData.poNumber;
+    if (employeeData.billing !== undefined) result.billing = employeeData.billing;
+    if (employeeData.lastActiveDate !== undefined) result.last_active_date = this.convertDateFormat(employeeData.lastActiveDate);
+    if (employeeData.projects !== undefined) result.projects = employeeData.projects;
+    if (employeeData.billabilityPercentage !== undefined) result.billability_percentage = employeeData.billabilityPercentage;
+    if (employeeData.projectStartDate !== undefined) result.project_start_date = this.convertDateFormat(employeeData.projectStartDate);
+    if (employeeData.projectEndDate !== undefined) result.project_end_date = this.convertDateFormat(employeeData.projectEndDate);
+    if (employeeData.experienceBand !== undefined) result.experience_band = employeeData.experienceBand;
+    if (employeeData.rate !== undefined) result.rate = employeeData.rate;
+    if (employeeData.ageing !== undefined) result.ageing = employeeData.ageing;
+    if (employeeData.benchDays !== undefined) result.bench_days = employeeData.benchDays;
+    if (employeeData.phoneNumber !== undefined) result.phone_number = employeeData.phoneNumber;
+    if (employeeData.emergencyContact !== undefined) result.emergency_contact = employeeData.emergencyContact;
+    if (employeeData.ctc !== undefined) result.ctc = employeeData.ctc;
+    if (employeeData.remarks !== undefined) result.remarks = employeeData.remarks;
+    if (employeeData.position !== undefined) result.position = employeeData.position;
+    if (employeeData.joiningDate !== undefined) result.joining_date = this.convertDateFormat(employeeData.joiningDate);
+    if (employeeData.location !== undefined) result.location = employeeData.location;
+    if (employeeData.manager !== undefined) result.manager = employeeData.manager;
+    if (employeeData.skills !== undefined) result.skills = employeeData.skills;
+    if (employeeData.dateOfSeparation !== undefined) result.date_of_separation = this.convertDateFormat(employeeData.dateOfSeparation);
+    
+    return result;
   }
 
   static async getAllEmployees(): Promise<Employee[]> {

@@ -16,19 +16,27 @@ const employeeSchema = new mongoose.Schema({
   },
   email: {
     type: String,
-    required: true,
     lowercase: true,
-    trim: true
+    trim: true,
+    default: '',
+    validate: {
+      validator: function(v) {
+        // Allow null/empty or valid email format
+        if (!v || v === '') return true;
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+      },
+      message: 'Invalid email format'
+    }
   },
   department: {
     type: String,
-    required: true,
-    trim: true
+    trim: true,
+    default: 'Not Specified'
   },
   designation: {
     type: String,
-    required: true,
-    trim: true
+    trim: true,
+    default: 'Not Specified'
   },
   mode_of_management: {
     type: String,
@@ -141,12 +149,43 @@ const employeeSchema = new mongoose.Schema({
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' }
 });
 
-// Auto-increment s_no
+// Helper function to validate and clean date fields
+const cleanDateField = function(dateValue) {
+  if (!dateValue) return null;
+  if (dateValue instanceof Date) return dateValue;
+  
+  // Try to parse the date
+  const parsed = new Date(dateValue);
+  if (isNaN(parsed.getTime())) {
+    // Invalid date
+    return null;
+  }
+  return parsed;
+};
+
+// Pre-save hook to clean date fields and auto-increment s_no
 employeeSchema.pre('save', async function(next) {
+  // Auto-increment s_no
   if (this.isNew && !this.s_no) {
     const lastEmployee = await mongoose.model('Employee').findOne().sort({ s_no: -1 });
     this.s_no = lastEmployee ? lastEmployee.s_no + 1 : 1;
   }
+  
+  // Clean date fields
+  const dateFields = [
+    'last_active_date',
+    'project_start_date', 
+    'project_end_date',
+    'joining_date',
+    'date_of_separation'
+  ];
+  
+  dateFields.forEach(field => {
+    if (this[field] !== undefined) {
+      this[field] = cleanDateField(this[field]);
+    }
+  });
+  
   next();
 });
 

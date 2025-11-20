@@ -202,26 +202,25 @@ export const EmployeeTable = ({
   useEffect(() => {
     const autoUpdateStatuses = async () => {
       if (!loading && allEmployees.length > 0) {
-        console.log('🔄 Checking for employees needing status updates...');
+        // Auto-update status disabled - not yet migrated to MongoDB
+        console.log('⚠️ Auto-update employee status disabled - not yet migrated to MongoDB');
         
-        let updatedCount = 0;
-        
-        for (const employee of allEmployees) {
-          try {
-            const updatedEmployee = await EmployeeService.autoUpdateEmployeeStatus(employee);
-            if (updatedEmployee) {
-              updatedCount++;
-            }
-          } catch (error) {
-            console.error(`Failed to update status for ${employee.name}:`, error);
-          }
-        }
-        
-        if (updatedCount > 0) {
-          console.log(`✅ Auto-updated ${updatedCount} employee statuses`);
-          // Refresh the data to show updated statuses
-          refetch();
-        }
+        // TODO: Re-enable when PO amendments are migrated to MongoDB
+        // let updatedCount = 0;
+        // for (const employee of allEmployees) {
+        //   try {
+        //     const updatedEmployee = await EmployeeService.autoUpdateEmployeeStatus(employee);
+        //     if (updatedEmployee) {
+        //       updatedCount++;
+        //     }
+        //   } catch (error) {
+        //     console.error(`Failed to update status for ${employee.name}:`, error);
+        //   }
+        // }
+        // if (updatedCount > 0) {
+        //   console.log(`✅ Auto-updated ${updatedCount} employee statuses`);
+        //   refetch();
+        // }
       }
     };
 
@@ -393,22 +392,24 @@ export const EmployeeTable = ({
     setIsRefreshing(true);
     try {
       // First update statuses, then refresh data
-      console.log('🔄 Refreshing and updating employee statuses...');
+      console.log('🔄 Refreshing employee data...');
       
-      let updatedCount = 0;
-      for (const employee of allEmployees) {
-        const updatedEmployee = await EmployeeService.autoUpdateEmployeeStatus(employee);
-        if (updatedEmployee) {
-          updatedCount++;
-        }
-      }
+      // Auto-update status disabled - not yet migrated to MongoDB
+      // TODO: Re-enable when PO amendments are migrated
+      // let updatedCount = 0;
+      // for (const employee of allEmployees) {
+      //   const updatedEmployee = await EmployeeService.autoUpdateEmployeeStatus(employee);
+      //   if (updatedEmployee) {
+      //     updatedCount++;
+      //   }
+      // }
       
-      // Then refresh the data
+      // Refresh the data
       await refetch();
       
-      if (updatedCount > 0) {
-        showSuccess('Data Refreshed', `Employee data has been updated. ${updatedCount} statuses were automatically updated.`);
-      } else {
+      showSuccess('Data Refreshed', 'Employee data has been updated.');
+      
+      if (false) {
         showSuccess('Data Refreshed', 'Employee data has been updated successfully.');
       }
     } catch (err) {
