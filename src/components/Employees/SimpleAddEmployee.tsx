@@ -100,19 +100,14 @@ export const SimpleAddEmployee: React.FC<SimpleAddEmployeeProps> = ({ onClose, o
           // Check if employee was assigned to a different project and user chose to remove from old project
           if (employee.client && employee.projects && (employee.client !== clientName || employee.projects !== projectName)) {
             if ((employee as any)._removeFromOldProject) {
-              // Remove from old project first
+              // Remove from ALL old projects first
               try {
-                const allProjects = await ProjectApi.getAllProjects();
-                const oldProject = allProjects.find(p => 
-                  p.client === employee.client && p.name === employee.projects
-                );
-                
-                if (oldProject) {
-                  const projectId = oldProject._id || oldProject.id;
-                  if (projectId && projectId !== 'undefined') {
+                // Get all employee projects
+                if (employee.employeeProjects && employee.employeeProjects.length > 0) {
+                  for (const oldProjectAssignment of employee.employeeProjects) {
                     try {
-                      await ProjectApi.removeEmployeeFromProject(projectId, employee.id);
-                      console.log(`Removed employee ${employee.name} from old project ${employee.client} - ${employee.projects}`);
+                      await ProjectApi.removeEmployeeFromProject(oldProjectAssignment.projectId, employee.id);
+                      console.log(`Removed employee ${employee.name} from old project ${oldProjectAssignment.client} - ${oldProjectAssignment.projectName}`);
                     } catch (removeError: any) {
                       // Ignore 404 errors - employee might not be assigned
                       if (!removeError.message?.includes('not assigned')) {
@@ -127,7 +122,6 @@ export const SimpleAddEmployee: React.FC<SimpleAddEmployeeProps> = ({ onClose, o
             } else {
               // User chose to keep in both projects - still update billability status to Billable
               await EmployeeService.updateEmployee(employee.id, {
-                ...employee,
                 billabilityStatus: 'Billable' // Set billability status to Billable even when keeping multiple projects
               });
               employeesWithDifferentProject.push(`${employee.name} - Kept in client ${employee.client} (PROJECT ${employee.projects})`);
@@ -143,15 +137,11 @@ export const SimpleAddEmployee: React.FC<SimpleAddEmployeeProps> = ({ onClose, o
             endDate: employee.projectEndDate || null
           });
           
-          // Update the employee record only if they were removed from old project
-          if ((employee as any)._removeFromOldProject || !employee.client || !employee.projects) {
-            await EmployeeService.updateEmployee(employee.id, {
-              ...employee,
-              client: clientName,
-              projects: projectName,
-              billabilityStatus: 'Billable' // Set billability status to Billable when assigned to project
-            });
-          }
+          // Update the employee record - set client and billability status
+          await EmployeeService.updateEmployee(employee.id, {
+            client: clientName,
+            billabilityStatus: 'Billable' // Set billability status to Billable when assigned to project
+          });
         }
         
         const employeeNames = selectedEmployees.map(emp => emp.name).join(', ');
