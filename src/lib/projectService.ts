@@ -937,75 +937,66 @@ static async migrateDefaultProjectNames(): Promise<void> {
   }
 
   static async deleteClient(clientName: string): Promise<void> {
-    const { data: clientEmployees, error: fetchError } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('client', clientName);
-    
-    if (fetchError) throw fetchError;
-
-    if (clientEmployees && clientEmployees.length > 0) {
-      const employeeIds = clientEmployees.map(emp => emp.id);
-      const { error: updateError } = await supabase
-        .from('employees')
-        .update({ 
-          billability_status: 'Bench',
+    try {
+      const { EmployeeService } = await import('./employeeService');
+      const { ProjectApi } = await import('./api/projectApi');
+      
+      // Get all employees for this client
+      const allEmployees = await EmployeeService.getAllEmployees();
+      const clientEmployees = allEmployees.filter(emp => emp.client === clientName);
+      
+      // Move employees to bench
+      for (const employee of clientEmployees) {
+        await EmployeeService.updateEmployee(employee.id, {
+          billabilityStatus: 'Bench',
           client: null,
-          projects: null,
-          billability_percentage: 0,
-          project_start_date: null,
-          project_end_date: null,
-          last_active_date: new Date().toISOString().slice(0, 10)
-        })
-        .in('id', employeeIds);
+          billabilityPercentage: 0,
+          lastActiveDate: new Date().toISOString().slice(0, 10)
+        });
+      }
       
-      if (updateError) throw updateError;
-    }
-
-    const { data: clientProjects, error: projectsFetchError } = await supabase
-      .from('projects')
-      .select('id')
-      .eq('client', clientName);
-    
-    if (projectsFetchError) throw projectsFetchError;
-
-    if (clientProjects && clientProjects.length > 0) {
-      const projectIds = clientProjects.map(p => p.id);
-      const { error: mappingError } = await supabase
-        .from('employee_projects')
-        .delete()
-        .in('project_id', projectIds);
+      // Get all projects for this client
+      const allProjects = await this.getAllProjects();
+      const clientProjects = allProjects.filter(p => p.client === clientName);
       
-      if (mappingError) throw mappingError;
+      // Delete all projects for this client (backend will handle employee-project cleanup)
+      for (const project of clientProjects) {
+        await ProjectApi.deleteProject(project.id);
+      }
+      
+      // Delete the client
+      const { ClientApi } = await import('./api/clientApi');
+      await ClientApi.deleteClient(clientName);
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      throw error;
     }
-
-    const { error } = await supabase
-      .from('projects')
-      .delete()
-      .eq('client', clientName);
-    
-    if (error) throw error;
   }
 
   static async removeEmployeeFromProject(employeeId: string, projectId: string): Promise<void> {
-    const { error } = await supabase
-      .from('employee_projects')
-      .delete()
-      .eq('employee_id', employeeId)
-      .eq('project_id', projectId);
-    
-    if (error) throw error;
-
-    const { error: updateError } = await supabase
-      .from('employees')
-      .update({ 
-        billability_status: 'Bench',
-        projects: null,
-        client: null
-      })
-      .eq('id', employeeId);
-    
-    if (updateError) throw updateError;
+    try {
+      const { ProjectApi } = await import('./api/projectApi');
+      const { EmployeeService } = await import('./employeeService');
+      
+      // Remove employee from project
+      await ProjectApi.removeEmployeeFromProject(projectId, employeeId);
+      
+      // Check if employee has any other project assignments
+      const employee = await EmployeeService.getEmployeeById(employeeId);
+      
+      if (employee) {
+        // If employee has no more project assignments, move to bench
+        if (!employee.employeeProjects || employee.employeeProjects.length === 0) {
+          await EmployeeService.updateEmployee(employeeId, {
+            billabilityStatus: 'Bench',
+            billabilityPercentage: 0
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error removing employee from project:', error);
+      throw error;
+    }
   }
 
   static async updateProject(projectId: string, updates: {
