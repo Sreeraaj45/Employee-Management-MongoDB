@@ -36,7 +36,7 @@ class InitializationService {
         console.log('No users found in database. Creating default admin user...');
         
         // Generate secure default credentials
-        const defaultEmail = 'admin@company.com';
+        const defaultEmail = 'admin@ielektron.com';
         const defaultPassword = this.generateSecurePassword();
         const hashedPassword = await AuthService.hashPassword(defaultPassword);
         
@@ -118,7 +118,7 @@ class InitializationService {
    */
   static async defaultAdminExists() {
     const defaultAdmin = await UserProfile.findOne({ 
-      email: 'admin@company.com',
+      email: 'admin@ielektron.com',
       role: 'Admin'
     });
     return !!defaultAdmin;

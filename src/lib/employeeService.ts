@@ -33,101 +33,14 @@ export class EmployeeService {
   // Get all employees with user names and project relationships
 static async getAllEmployees(): Promise<Employee[]> {
   try {
-    // First get all employees
-    const { data: employees, error: employeesError } = await supabase
-      .from('employees')
-      .select('*')
-      .order('s_no', { ascending: true }) as { data: any[] | null; error: any };
+    // Use MongoDB API instead of Supabase
+    const { EmployeeApi } = await import('./api/employeeApi');
+    const employees = await EmployeeApi.getAllEmployees();
+    
+    // Map MongoDB employees to expected format
+    return employees.map(emp => this.mapDatabaseRowToEmployee(emp));
 
-    if (employeesError) throw employeesError;
 
-    // Get unique user IDs from employees
-    const userIds = [...new Set(employees
-      .map(emp => emp.last_modified_by)
-      .filter(Boolean))] as string[];
-
-    // Get user profiles for these IDs
-    let userProfiles: { [key: string]: string } = {};
-    if (userIds.length > 0) {
-      const { data: profiles, error: profilesError } = await supabase
-        .from('user_profiles')
-        .select('id, name')
-        .in('id', userIds);
-
-      if (profilesError) throw profilesError;
-      
-      // Create a mapping of user ID to name
-      userProfiles = profiles?.reduce((acc, profile) => {
-        acc[profile.id] = profile.name;
-        return acc;
-      }, {} as { [key: string]: string }) || {};
-    }
-
-    // Get employee-project relationships
-    const { data: employeeProjects, error: projectsError } = await supabase
-      .from('employee_projects')
-      .select(`
-        id,
-        employee_id,
-        project_id,
-        allocation_percentage,
-        start_date,
-        end_date,
-        role_in_project,
-        po_number,
-        billing_type,
-        billing_rate,
-        projects!inner(
-          id,
-          name,
-          client,
-          po_number
-        )
-      `);
-
-    if (projectsError) {
-      console.warn('Error fetching employee projects:', projectsError);
-    }
-
-    // Get PO amendments for all projects
-    const projectIds = [...new Set(employeeProjects?.map(ep => ep.project_id) || [])];
-    const poAmendmentsByProject = await this.getPOAmendmentsForProjects(projectIds);
-
-    // Create a mapping of employee ID to their projects
-    const employeeProjectsMap = new Map<string, EmployeeProject[]>();
-    if (employeeProjects) {
-      employeeProjects.forEach(ep => {
-        const employeeId = ep.employee_id;
-        if (!employeeProjectsMap.has(employeeId)) {
-          employeeProjectsMap.set(employeeId, []);
-        }
-        
-        employeeProjectsMap.get(employeeId)!.push({
-          id: ep.id,
-          projectId: ep.project_id,
-          projectName: ep.projects.name,
-          client: ep.projects.client,
-          allocationPercentage: ep.allocation_percentage,
-          startDate: ep.start_date,
-          endDate: ep.end_date,
-          roleInProject: ep.role_in_project,
-          poNumber: ep.po_number || ep.projects.po_number || '',
-          billing: ep.billing_type || 'Monthly', // ✅ Use actual billing_type from database
-          rate: ep.billing_rate || 0, // ✅ Use actual billing_rate from database
-          poAmendments: poAmendmentsByProject[ep.project_id] || []
-        });
-      });
-    }
-
-    // Map employees with user names and project relationships
-    const employeesWithProjects = employees.map(emp => ({
-      ...this.mapDatabaseRowToEmployee(emp),
-      lastModifiedBy: userProfiles[emp.last_modified_by] || emp.last_modified_by,
-      employeeProjects: employeeProjectsMap.get(emp.id) || []
-    }));
-
-    // ✅ PROCESS: Auto-set lastActiveDate based on latest PO end date
-    return employeesWithProjects.map(emp => this.processEmployeeDataWithLatestPOEndDate(emp));
   } catch (error) {
     console.error('Error fetching employees:', error);
     throw error;
@@ -237,111 +150,12 @@ static async getEmployeeById(id: string): Promise<Employee | null> {
 // Create new employee
 static async createEmployee(employeeData: Omit<Employee, 'id' | 'sNo' | 'lastUpdated'>): Promise<Employee> {
   try {
-    // Get the current user
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
+    // Use MongoDB API instead of Supabase
+    const { EmployeeApi } = await import('./api/employeeApi');
+    const employee = await EmployeeApi.createEmployee(employeeData);
+    return this.mapDatabaseRowToEmployee(employee);
 
-    // ✅ AUTO-CALCULATE: Get latest PO end date for billing last active date
-    let finalLastActiveDate = employeeData.lastActiveDate || null;
-    if (employeeData.employeeProjects && employeeData.employeeProjects.length > 0) {
-      const latestPOEndDate = this.getLatestPOEndDate(employeeData.employeeProjects);
-      if (latestPOEndDate) {
-        finalLastActiveDate = latestPOEndDate;
-      }
-    }
 
-    const insertData = {
-      employee_id: employeeData.employeeId,
-      name: employeeData.name,
-      email: employeeData.email,
-      department: employeeData.department,
-      designation: employeeData.designation,
-      mode_of_management: employeeData.modeOfManagement,
-      client: employeeData.client,
-      billability_status: employeeData.billabilityStatus,
-      po_number: employeeData.poNumber,
-      billing: employeeData.billing,
-      last_active_date: this.safeDateValue(finalLastActiveDate), // ✅ Use calculated date
-      projects: employeeData.projects,
-      billability_percentage: employeeData.billabilityPercentage,
-      project_start_date: this.safeDateValue(employeeData.projectStartDate),
-      project_end_date: this.safeDateValue(employeeData.projectEndDate),
-      experience_band: employeeData.experienceBand,
-      rate: employeeData.rate,
-      ageing: employeeData.ageing,
-      bench_days: employeeData.benchDays,
-      phone_number: employeeData.phoneNumber,
-      emergency_contact: employeeData.emergencyContact,
-      ctc: employeeData.ctc,
-      remarks: employeeData.remarks,
-      last_modified_by: user.id, // Store UUID
-      position: employeeData.position,
-      joining_date: this.safeDateValue(employeeData.joiningDate),
-      location: employeeData.location,
-      manager: employeeData.manager,
-      skills: employeeData.skills,
-      date_of_separation: this.safeDateValue(employeeData.dateOfSeparation), 
-    };
-
-    const { data, error } = await supabase
-      .from('employees')
-      .insert(insertData)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    // Get the user's name for the response
-    const { data: userProfile } = await supabase
-      .from('user_profiles')
-      .select('name')
-      .eq('id', user.id)
-      .single();
-
-    const employee = {
-      ...this.mapDatabaseRowToEmployee(data),
-      lastModifiedBy: userProfile?.name || user.id
-    };
-
-    // Handle employee projects if provided
-    if (employeeData.employeeProjects && employeeData.employeeProjects.length > 0) {
-      await this.updateEmployeeProjects(data.id, employeeData.employeeProjects);
-      employee.employeeProjects = employeeData.employeeProjects;
-      
-      // ✅ PROCESS: Auto-set lastActiveDate based on latest PO end date
-      const processedEmployee = this.processEmployeeDataWithLatestPOEndDate(employee);
-      
-      // Create notification for employee creation
-      try {
-        await NotificationService.createEmployeeNotification(
-          'employee_created',
-          processedEmployee.name,
-          processedEmployee.employeeId,
-          user.id,
-          ['Admin', 'Lead', 'HR'] // All roles should see employee notifications
-        );
-      } catch (notificationError) {
-        console.warn('Failed to create notification for employee creation:', notificationError);
-        // Don't throw error to avoid breaking the employee creation process
-      }
-
-      return processedEmployee;
-    }
-
-    // Create notification for employee creation (without projects)
-    try {
-      await NotificationService.createEmployeeNotification(
-        'employee_created',
-        employee.name,
-        employee.employeeId,
-        user.id,
-        ['Admin', 'Lead', 'HR']
-      );
-    } catch (notificationError) {
-      console.warn('Failed to create notification for employee creation:', notificationError);
-    }
-
-    return employee;
   } catch (error) {
     console.error('Error creating employee:', error);
     throw error;
@@ -351,108 +165,10 @@ static async createEmployee(employeeData: Omit<Employee, 'id' | 'sNo' | 'lastUpd
 // Update employee
 static async updateEmployee(id: string, employeeData: Partial<Employee>): Promise<Employee> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-
-    // ✅ AUTO-CALCULATE: Get latest PO end date for billing last active date
-    let finalLastActiveDate = employeeData.lastActiveDate;
-    if (employeeData.employeeProjects && employeeData.employeeProjects.length > 0) {
-      const latestPOEndDate = this.getLatestPOEndDate(employeeData.employeeProjects);
-      if (latestPOEndDate) {
-        finalLastActiveDate = latestPOEndDate;
-      }
-    }
-
-    const updateData: any = {};
-
-    // Map Employee interface fields to database fields with PROPER NULL HANDLING
-    if (employeeData.employeeId !== undefined) updateData.employee_id = employeeData.employeeId;
-    if (employeeData.name !== undefined) updateData.name = employeeData.name;
-    if (employeeData.email !== undefined) updateData.email = employeeData.email;
-    if (employeeData.department !== undefined) updateData.department = employeeData.department;
-    if (employeeData.designation !== undefined) updateData.designation = employeeData.designation;
-    if (employeeData.modeOfManagement !== undefined) updateData.mode_of_management = employeeData.modeOfManagement;
-    if (employeeData.client !== undefined) updateData.client = employeeData.client;
-    if (employeeData.billabilityStatus !== undefined) updateData.billability_status = employeeData.billabilityStatus;
-    if (employeeData.poNumber !== undefined) updateData.po_number = employeeData.poNumber;
-    if (employeeData.billing !== undefined) updateData.billing = employeeData.billing;
-    
-    // Date handling - use calculated last active date
-    if (finalLastActiveDate !== undefined) {
-      updateData.last_active_date = this.safeDateValue(finalLastActiveDate);
-    }
-    
-    if (employeeData.projects !== undefined) updateData.projects = employeeData.projects;
-    if (employeeData.billabilityPercentage !== undefined) updateData.billability_percentage = employeeData.billabilityPercentage;
-    
-    if (employeeData.projectStartDate !== undefined) {
-      updateData.project_start_date = this.safeDateValue(employeeData.projectStartDate);
-    }
-    
-    if (employeeData.projectEndDate !== undefined) {
-      updateData.project_end_date = this.safeDateValue(employeeData.projectEndDate);
-    }
-    
-    if (employeeData.experienceBand !== undefined) updateData.experience_band = employeeData.experienceBand;
-    if (employeeData.rate !== undefined) updateData.rate = employeeData.rate;
-    if (employeeData.ageing !== undefined) updateData.ageing = employeeData.ageing;
-    if (employeeData.benchDays !== undefined) updateData.bench_days = employeeData.benchDays;
-    if (employeeData.phoneNumber !== undefined) updateData.phone_number = employeeData.phoneNumber;
-    if (employeeData.emergencyContact !== undefined) updateData.emergency_contact = employeeData.emergencyContact;
-    if (employeeData.ctc !== undefined) updateData.ctc = employeeData.ctc;
-    if (employeeData.remarks !== undefined) updateData.remarks = employeeData.remarks;
-    if (employeeData.position !== undefined) updateData.position = employeeData.position;
-    
-    if (employeeData.joiningDate !== undefined) {
-      updateData.joining_date = this.safeDateValue(employeeData.joiningDate);
-    }
-    
-    if (employeeData.location !== undefined) updateData.location = employeeData.location;
-    if (employeeData.manager !== undefined) updateData.manager = employeeData.manager;
-    if (employeeData.skills !== undefined) updateData.skills = employeeData.skills;
-    if (employeeData.dateOfSeparation !== undefined) {
-      updateData.date_of_separation = this.safeDateValue(employeeData.dateOfSeparation);
-    }
-
-    // Always use the authenticated user's UUID
-    updateData.last_modified_by = user.id;
-    updateData.updated_at = new Date().toISOString();
-
-    const { data, error } = await supabase
-      .from('employees')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('❌ Supabase update error:', error);
-      throw error;
-    }
-
-    // Get the user's name for the response
-    const { data: userProfile } = await supabase
-      .from('user_profiles')
-      .select('name')
-      .eq('id', user.id)
-      .single();
-
-    const updatedEmployee = {
-      ...this.mapDatabaseRowToEmployee(data),
-      lastModifiedBy: userProfile?.name || user.id
-    };
-
-    // Handle employee projects if provided
-    if (employeeData.employeeProjects !== undefined) {
-      await this.updateEmployeeProjects(id, employeeData.employeeProjects);
-      updatedEmployee.employeeProjects = employeeData.employeeProjects;
-      
-      // ✅ PROCESS: Auto-set lastActiveDate based on latest PO end date
-      const processedEmployee = this.processEmployeeDataWithLatestPOEndDate(updatedEmployee);
-      return processedEmployee;
-    }
-
-    return updatedEmployee;
+    // Use MongoDB API instead of Supabase
+    const { EmployeeApi } = await import('./api/employeeApi');
+    const employee = await EmployeeApi.updateEmployee(id, employeeData);
+    return this.mapDatabaseRowToEmployee(employee);
   } catch (error) {
     console.error('Error updating employee:', error);
     throw error;
@@ -582,42 +298,9 @@ private static safeDateValue(dateValue: any): string | null {
   // Delete employee
   static async deleteEmployee(id: string): Promise<void> {
     try {
-      // Get employee info before deletion for notification
-      const employee = await this.getEmployeeById(id);
-      
-      // ✅ FIX: Remove .single() from delete operations
-      const { error } = await supabase
-        .from('employees')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      // Resequence s_no after deletion to keep contiguous ordering
-      const { error: rpcError } = await supabase.rpc('resequence_employees_s_no');
-      if (rpcError) {
-        console.warn('Warning: Could not resequence employees:', rpcError);
-        // Don't throw error for resequencing failure
-      }
-
-      // Create notification for employee deletion
-      if (employee) {
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            await NotificationService.createEmployeeNotification(
-              'employee_deleted',
-              employee.name,
-              employee.employeeId,
-              user.id,
-              ['Admin', 'Lead', 'HR']
-            );
-          }
-        } catch (notificationError) {
-          console.warn('Failed to create notification for employee deletion:', notificationError);
-          // Don't throw error to avoid breaking the employee deletion process
-        }
-      }
+      // Use MongoDB API instead of Supabase
+      const { EmployeeApi } = await import('./api/employeeApi');
+      await EmployeeApi.deleteEmployee(id);
     } catch (error) {
       console.error('Error deleting employee:', error);
       throw error;

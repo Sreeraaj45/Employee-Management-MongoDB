@@ -253,112 +253,55 @@ const microsoftLogin = async (): Promise<{ success: boolean; error?: string }> =
 };
 
   useEffect(() => {
-    console.log('🔄 Auth state listener initialized');
+    console.log('🔄 Auth state initialized');
     
-    // Rehydrate cached user immediately if available for smoother UX
+    // Check for cached user and token
     const cached = loadCachedUser();
-    if (cached) {
+    const token = localStorage.getItem('auth_token');
+    
+    if (cached && token) {
       console.log('💾 Rehydrated user from cache:', cached.email, cached.role);
       setUser(cached);
       setIsLoading(false);
-    }
-
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('📊 Initial session check:', session);
-      if (session?.user) {
-        console.log('👤 Initial user found:', session.user.email);
-        getUserProfile(session.user).then((profile) => {
-          if (profile) {
-            setUser(profile);
-            persistUser(profile);
+      
+      // Optionally verify token is still valid by calling /api/auth/me
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+      fetch(`${apiBaseUrl}/api/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.user) {
+            console.log('✅ Token validated, user session active');
+          } else {
+            console.log('⚠️ Token invalid, clearing session');
+            setUser(null);
+            persistUser(null);
+            localStorage.removeItem('auth_token');
           }
-        });
-      } else {
-        console.log('❌ No initial session found');
-      }
-      if (!cached) setIsLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('🔄 Auth state change event:', event);
-        console.log('📊 Session data:', session);
-        
-        if (session?.user) {
-          lastSessionSeenAtRef.current = Date.now();
-        }
-
-        if (event === 'SIGNED_OUT') {
-          console.log('🚪 User signed out event detected');
+        })
+        .catch(error => {
+          console.error('❌ Token validation failed:', error);
           setUser(null);
-          setIsLoading(false);
-          setIsMicrosoftLoading(false);
-          console.log('✅ Loading state reset after sign out');
           persistUser(null);
-        } else if (session?.user) {
-          console.log('👤 User authenticated:', session.user.email);
-          
-          // Add timeout for profile fetch
-          try {
-            const userProfile = await Promise.race([
-              getUserProfile(session.user),
-              new Promise<User | null>((_, reject) => 
-                setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
-              )
-            ]);
-            
-            if (userProfile) {
-              setUser(userProfile);
-              setIsLoading(false);
-              setIsMicrosoftLoading(false);
-              persistUser(userProfile);
-            } else {
-              console.log('⚠️ No user profile returned; preserving existing user state');
-              setIsLoading(false);
-              setIsMicrosoftLoading(false);
-            }
-          } catch (error) {
-            console.error('💥 Profile fetch failed; preserving existing user state:', error);
-            setIsLoading(false);
-            setIsMicrosoftLoading(false);
-          }
-        } else {
-          console.log('🚪 No session or user data (possible transient). Starting grace timer...');
-          if (signoutGraceTimerRef.current) {
-            window.clearTimeout(signoutGraceTimerRef.current);
-          }
-          signoutGraceTimerRef.current = window.setTimeout(() => {
-            const elapsed = Date.now() - lastSessionSeenAtRef.current;
-            if (elapsed >= 45000) {
-              console.log('⏰ Grace elapsed without session. Clearing user.');
-              setUser(null);
-              setIsLoading(false);
-              setIsMicrosoftLoading(false);
-              persistUser(null);
-            } else {
-              console.log('👍 Session restored within grace. Keeping user.');
-            }
-          }, 45000);
-        }
-      }
-    );
+          localStorage.removeItem('auth_token');
+        });
+    } else {
+      console.log('❌ No cached session found');
+      setIsLoading(false);
+    }
 
     // Safety timeout to prevent infinite loading
     const safetyTimeout = setTimeout(() => {
       console.log('⏰ Safety timeout - forcing loading state reset');
       setIsLoading(false);
       setIsMicrosoftLoading(false);
-    }, 10000); // 10 seconds
+    }, 5000);
 
     return () => {
-      console.log('🔄 Auth state listener cleanup');
-      subscription.unsubscribe();
       clearTimeout(safetyTimeout);
-      if (signoutGraceTimerRef.current) {
-        window.clearTimeout(signoutGraceTimerRef.current);
-      }
     };
   }, []);
 
@@ -368,37 +311,46 @@ const microsoftLogin = async (): Promise<{ success: boolean; error?: string }> =
     setIsLoading(true);
     
     try {
-      console.log('🚀 Calling supabase.auth.signInWithPassword...');
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+      console.log('🚀 Calling MongoDB API login endpoint...');
+      
+      const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
       });
 
-      console.log('📊 Sign-in response received:');
-      console.log('  - Data:', data);
-      console.log('  - Error:', error);
-      console.log('  - User object:', data?.user);
-      console.log('  - Session:', data?.session);
+      const data = await response.json();
+      console.log('📊 Login response received:', data);
 
-      if (error) {
-        console.error('❌ Authentication error:', error);
-        console.error('  - Error message:', error.message);
-        console.error('  - Error status:', error.status);
-        console.error('  - Error name:', error.name);
+      if (!response.ok) {
+        console.error('❌ Authentication error:', data.error);
         setIsLoading(false);
-        return { success: false, error: error.message };
+        return { success: false, error: data.error?.message || 'Login failed' };
       }
 
-      if (data.user) {
-        console.log('✅ User authenticated successfully, fetching profile...');
+      if (data.user && data.token) {
+        console.log('✅ User authenticated successfully');
         console.log('  - User ID:', data.user.id);
         console.log('  - User email:', data.user.email);
-        const userProfile = await getUserProfile(data.user);
-        console.log('  - User profile:', userProfile);
-        if (userProfile) {
-          setUser(userProfile);
-          persistUser(userProfile);
-        }
+        console.log('  - User role:', data.user.role);
+        
+        // Store token in localStorage
+        localStorage.setItem('auth_token', data.token);
+        
+        // Create user object
+        const userProfile: User = {
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name,
+          role: data.user.role,
+          avatar: data.user.avatar || profileImg,
+        };
+        
+        setUser(userProfile);
+        persistUser(userProfile);
       } else {
         console.warn('⚠️ No user data in response');
       }
@@ -408,8 +360,6 @@ const microsoftLogin = async (): Promise<{ success: boolean; error?: string }> =
       return { success: true };
     } catch (error) {
       console.error('💥 Unexpected error during login:', error);
-      console.error('  - Error type:', typeof error);
-      console.error('  - Error constructor:', error?.constructor?.name);
       setIsLoading(false);
       return { success: false, error: 'An unexpected error occurred' };
     }
@@ -483,35 +433,17 @@ const microsoftLogin = async (): Promise<{ success: boolean; error?: string }> =
     console.log('🚪 Logout attempt started');
     console.log('👤 Current user before logout:', user);
     
-    try {
-      // Immediately clear user state and set loading to false
-      setUser(null);
-      setIsLoading(false);
-      setIsMicrosoftLoading(false);
-      persistUser(null);
-      
-      console.log('🚀 Calling supabase.auth.signOut...');
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error('❌ Logout error:', error);
-        console.error('  - Error message:', error.message);
-        console.error('  - Error status:', error.status);
-        // Error doesn't matter, we've already cleared local state
-        return;
-      }
-      
-      console.log('✅ Supabase signOut successful');
-      console.log('✅ User state cleared, logout completed');
-      
-      // Force redirect to home page immediately
-      window.location.href = '/';
-    } catch (error) {
-      console.error('💥 Unexpected error during logout:', error);
-      // Even if there's an error, we've already cleared local state
-      // Force redirect anyway
-      window.location.href = '/';
-    }
+    // Clear user state and token
+    setUser(null);
+    setIsLoading(false);
+    setIsMicrosoftLoading(false);
+    persistUser(null);
+    localStorage.removeItem('auth_token');
+    
+    console.log('✅ User state cleared, logout completed');
+    
+    // Force redirect to home page
+    window.location.href = '/';
   };
 
   return { 

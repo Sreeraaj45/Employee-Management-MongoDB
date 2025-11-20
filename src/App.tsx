@@ -107,7 +107,7 @@ function AppContent() {
         try {
           console.log('🔄 Initializing PO scheduler...');
           const result = await POScheduler.recalculateAllActivePOs();
-          console.log('✅ PO scheduler completed:', result.message);
+          console.log('✅ PO scheduler completed:', result);
         } catch (error) {
           console.error('❌ PO scheduler failed:', error);
         }

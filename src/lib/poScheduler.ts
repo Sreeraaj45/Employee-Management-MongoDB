@@ -1,5 +1,5 @@
-import { supabase } from './supabase';
 import { ProjectService } from './projectService';
+import { ProjectApi } from './api/projectApi';
 
 export class POScheduler {
   static async recalculateAllActivePOs(): Promise<void> {
@@ -7,15 +7,8 @@ export class POScheduler {
       console.log('Starting PO scheduler: Recalculating active POs...');
       
       // Get all projects with PO amendments
-      const { data: projects, error } = await supabase
-        .from('projects')
-        .select('id, name')
-        .eq('status', 'Active');
-      
-      if (error) {
-        console.error('Error fetching projects:', error);
-        return;
-      }
+      const allProjects = await ProjectApi.getAllProjects();
+      const projects = allProjects.filter(p => p.status === 'Active');
       
       if (!projects || projects.length === 0) {
         console.log('No active projects found');
