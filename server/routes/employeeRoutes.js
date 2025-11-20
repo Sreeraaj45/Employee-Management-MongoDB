@@ -226,47 +226,6 @@ router.put('/:id', ...authorize(['Admin', 'Lead', 'HR', 'Delivery Team']), async
 });
 
 /**
- * DELETE /api/employees/:id
- * Delete employee (Admin, Delivery Team only)
- */
-router.delete('/:id', ...authorize(['Admin', 'Delivery Team']), async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const employee = await Employee.findByIdAndDelete(id);
-
-    if (!employee) {
-      return res.status(404).json({
-        error: {
-          message: 'Employee not found'
-        }
-      });
-    }
-
-    res.status(200).json({
-      message: 'Employee deleted successfully',
-      employee
-    });
-  } catch (error) {
-    console.error('Delete employee error:', error);
-    
-    if (error.name === 'CastError') {
-      return res.status(400).json({
-        error: {
-          message: 'Invalid employee ID format'
-        }
-      });
-    }
-
-    res.status(500).json({
-      error: {
-        message: 'Failed to delete employee'
-      }
-    });
-  }
-});
-
-/**
  * POST /api/employees/bulk
  * Bulk upload employees (Admin only)
  * Body: { employees: [...], conflictResolution: 'skip' | 'overwrite' | 'ask' }
@@ -398,6 +357,47 @@ router.delete('/bulk', ...authorize(['Admin']), async (req, res) => {
     res.status(500).json({
       error: {
         message: 'Failed to delete employees'
+      }
+    });
+  }
+});
+
+/**
+ * DELETE /api/employees/:id
+ * Delete employee (Admin, Delivery Team only)
+ */
+router.delete('/:id', ...authorize(['Admin', 'Delivery Team']), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const employee = await Employee.findByIdAndDelete(id);
+
+    if (!employee) {
+      return res.status(404).json({
+        error: {
+          message: 'Employee not found'
+        }
+      });
+    }
+
+    res.status(200).json({
+      message: 'Employee deleted successfully',
+      employee
+    });
+  } catch (error) {
+    console.error('Delete employee error:', error);
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        error: {
+          message: 'Invalid employee ID format'
+        }
+      });
+    }
+
+    res.status(500).json({
+      error: {
+        message: 'Failed to delete employee'
       }
     });
   }

@@ -333,8 +333,9 @@ describe('Client API Routes Integration Tests', () => {
     });
 
     it('should reject empty client names', async () => {
+      // Test with URL-encoded space
       const response = await request(app)
-        .delete('/api/clients/   ')
+        .delete('/api/clients/%20')
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(response.status).toBe(400);

@@ -2,6 +2,7 @@ import express from 'express';
 import AuthService from '../services/authService.js';
 import UserProfile from '../models/UserProfile.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
+import Logger from '../utils/logger.js';
 
 const router = express.Router();
 

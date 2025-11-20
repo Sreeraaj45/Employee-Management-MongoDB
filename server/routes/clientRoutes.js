@@ -88,7 +88,8 @@ router.delete('/:name', ...authorize(['Admin', 'Lead', 'HR', 'Delivery Team']), 
   try {
     const { name } = req.params;
 
-    if (!name || name.trim() === '') {
+    // Handle empty or whitespace-only names
+    if (!name || name.trim() === '' || name === '%20' || /^[\s%20]+$/.test(name)) {
       return res.status(400).json({
         error: {
           message: 'Client name is required'
@@ -96,7 +97,7 @@ router.delete('/:name', ...authorize(['Admin', 'Lead', 'HR', 'Delivery Team']), 
       });
     }
 
-    const clientName = decodeURIComponent(name.trim());
+    const clientName = decodeURIComponent(name).trim();
 
     // Find all projects for this client
     const projects = await Project.find({ client: clientName });

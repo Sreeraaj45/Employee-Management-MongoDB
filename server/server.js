@@ -18,20 +18,30 @@ const app = express();
 // Import initialization service
 import InitializationService from './services/initializationService.js';
 
-// Connect to MongoDB and run initialization
+// Connect to MongoDB and run initialization (only in non-test environment)
 connectDB().then(async () => {
   // Run initialization tasks (create default admin if needed)
-  try {
-    await InitializationService.initialize();
-  } catch (error) {
-    console.error('Failed to run initialization:', error);
+  // Skip initialization in test environment to avoid interfering with tests
+  if (config.nodeEnv !== 'test' && process.env.NODE_ENV !== 'test') {
+    try {
+      await InitializationService.initialize();
+    } catch (error) {
+      console.error('Failed to run initialization:', error);
+    }
   }
 });
+
+// Import middleware
+import { errorHandler, notFoundHandler, requestLogger } from './middleware/errorHandler.js';
+import Logger from './utils/logger.js';
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Request logging middleware (logs all incoming requests)
+app.use(requestLogger);
 
 // Import routes
 import authRoutes from './routes/authRoutes.js';
@@ -87,20 +97,27 @@ if (config.nodeEnv === 'production') {
   });
 }
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err.stack);
-  res.status(err.status || 500).json({
-    error: {
-      message: err.message || 'Internal Server Error',
-      ...(config.nodeEnv === 'development' && { stack: err.stack }),
-    },
-  });
+// 404 handler for unmatched API routes (must be after all route definitions)
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api')) {
+    return notFoundHandler(req, res, next);
+  }
+  next();
 });
+
+// Global error handling middleware (must be last)
+app.use(errorHandler);
 
 // Start server
 const PORT = config.port;
 app.listen(PORT, () => {
+  Logger.info(`Server started successfully`, {
+    environment: config.nodeEnv,
+    port: PORT,
+    apiUrl: `http://localhost:${PORT}/api`,
+    ...(config.nodeEnv === 'production' && { frontendUrl: `http://localhost:${PORT}` })
+  });
+  
   console.log(`Server running in ${config.nodeEnv} mode on port ${PORT}`);
   console.log(`API available at http://localhost:${PORT}/api`);
   if (config.nodeEnv === 'production') {

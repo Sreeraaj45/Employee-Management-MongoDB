@@ -6,11 +6,17 @@
   "scripts": {
     "dev": "vite",
     "dev:server": "node server/server.js",
+    "dev:all": "echo 'Run dev:server in one terminal and dev in another terminal'",
     "build": "vite build",
+    "build:full": "npm run build && npm run start",
     "start": "node server/server.js",
+    "start:prod": "NODE_ENV=production node server/server.js",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest --run"
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest --coverage",
+    "seed": "node server/scripts/seedDropdownOptions.js"
   },
   "dependencies": {
     "@amcharts/amcharts4": "^4.10.40",

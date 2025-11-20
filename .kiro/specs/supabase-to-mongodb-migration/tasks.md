@@ -298,7 +298,7 @@ This implementation plan converts the employee management system from Supabase t
   - **Property 10: Dashboard role-based rendering**
   - **Validates: Requirements 11.1, 11.2, 11.3, 11.4**
 
-- [ ] 21. Update package.json scripts
+- [x] 21. Update package.json scripts
   - Add "dev:server" script to run backend in development
   - Update "dev" script to run both frontend and backend concurrently
   - Add "build" script to build frontend
@@ -306,7 +306,7 @@ This implementation plan converts the employee management system from Supabase t
   - Add "test" script for running tests
   - _Requirements: 3.1_
 
-- [ ] 22. Configure Vite for production build
+- [x] 22. Configure Vite for production build
   - Update vite.config.ts to set correct base path
   - Configure build output directory (dist/)
   - Ensure assets are properly referenced
@@ -323,15 +323,15 @@ This implementation plan converts the employee management system from Supabase t
   - Return clear error messages
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
 
-- [ ] 23.1 Write property test for MongoDB connection resilience
+- [x] 23.1 Write property test for MongoDB connection resilience
   - **Property 13: MongoDB connection resilience**
   - **Validates: Requirements 9.1, 9.5**
 
-- [ ] 23.2 Write property test for environment configuration validation
+- [x] 23.2 Write property test for environment configuration validation
   - **Property 14: Environment configuration validation**
   - **Validates: Requirements 8.3**
 
-- [ ] 24. Create seed data script
+- [x] 24. Create seed data script
   - Create script to populate dropdown options
   - Add common departments (Engineering, HR, Finance, etc.)
   - Add common designations (Developer, Manager, Lead, etc.)

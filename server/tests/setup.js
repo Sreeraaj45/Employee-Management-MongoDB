@@ -3,6 +3,9 @@ import dotenv from 'dotenv';
 // Load environment variables for testing
 dotenv.config();
 
+// Set NODE_ENV to test to prevent initialization service from running
+process.env.NODE_ENV = 'test';
+
 // Set test environment variables if not already set
 if (!process.env.JWT_SECRET) {
   process.env.JWT_SECRET = 'test-jwt-secret-key-minimum-32-characters-long';
