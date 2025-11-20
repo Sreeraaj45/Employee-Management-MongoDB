@@ -66,6 +66,9 @@ static async getEmployeeById(id: string): Promise<Employee | null> {
     
     if (!employee) return null;
     
+    console.log('📋 Raw employee from API:', employee);
+    console.log('📋 Employee projects from API:', employee.employeeProjects);
+    
     return this.mapDatabaseRowToEmployee(employee);
     
     /* OLD SUPABASE CODE - COMMENTED OUT
@@ -998,7 +1001,7 @@ private static safeDateValue(dateValue: any): string | null {
   // Update employee project assignments
   private static async updateEmployeeProjectAssignments(employeeId: string, employeeProjects: any[]): Promise<void> {
     try {
-      const { ProjectApi } = await import('./api/projectApi');
+      const { EmployeeProjectApi } = await import('./api/employeeProjectApi');
       
       console.log(`🔄 Updating project assignments for employee ${employeeId}:`, employeeProjects);
       
@@ -1016,29 +1019,55 @@ private static safeDateValue(dateValue: any): string | null {
         return dateStr;
       };
       
-      // For each project assignment, create or update the assignment
+      // Get current assignments from the database
+      const currentEmployee = await this.getEmployeeById(employeeId);
+      const currentAssignments = currentEmployee?.employeeProjects || [];
+      
+      // Track which assignments to keep
+      const newProjectIds = new Set(employeeProjects.map(p => p.projectId).filter(Boolean));
+      const currentProjectIds = new Set(currentAssignments.map(p => p.projectId));
+      
+      // Delete assignments that are no longer in the list
+      for (const currentAssignment of currentAssignments) {
+        if (!newProjectIds.has(currentAssignment.projectId)) {
+          try {
+            await EmployeeProjectApi.deleteEmployeeProject(currentAssignment.projectId, employeeId);
+            console.log(`🗑️ Removed assignment from project ${currentAssignment.projectName}`);
+          } catch (error) {
+            console.error(`❌ Failed to remove assignment from project ${currentAssignment.projectName}:`, error);
+          }
+        }
+      }
+      
+      // Create or update assignments
       for (const project of employeeProjects) {
         if (!project.projectId) continue;
         
+        const assignmentData = {
+          allocation_percentage: project.allocationPercentage || 100,
+          start_date: convertDateFormat(project.startDate) || new Date().toISOString().slice(0, 10),
+          end_date: convertDateFormat(project.endDate),
+          role_in_project: project.roleInProject || null,
+          po_number: project.poNumber || null,
+          billing_type: project.billing || 'Monthly',
+          billing_rate: project.rate || 0
+        };
+        
         try {
-          await ProjectApi.assignEmployeeToProject(project.projectId, {
-            employee_id: employeeId,
-            allocation_percentage: project.allocationPercentage || 100,
-            start_date: convertDateFormat(project.startDate) || new Date().toISOString().slice(0, 10),
-            end_date: convertDateFormat(project.endDate),
-            role_in_project: project.roleInProject || null,
-            po_number: project.poNumber || null,
-            billing_type: project.billing || 'Monthly',
-            billing_rate: project.rate || 0
-          });
-          console.log(`✅ Assigned to project ${project.projectName}`);
-        } catch (error: any) {
-          // If already assigned, that's okay
-          if (error.message?.includes('already assigned')) {
-            console.log(`ℹ️ Already assigned to project ${project.projectName}`);
+          if (currentProjectIds.has(project.projectId)) {
+            // Update existing assignment
+            await EmployeeProjectApi.updateEmployeeProject(project.projectId, employeeId, assignmentData);
+            console.log(`✅ Updated assignment for project ${project.projectName}`);
           } else {
-            console.error(`❌ Failed to assign to project ${project.projectName}:`, error);
+            // Create new assignment
+            await EmployeeProjectApi.assignEmployeeToProject(project.projectId, {
+              employee_id: employeeId,
+              ...assignmentData
+            });
+            console.log(`✅ Created assignment for project ${project.projectName}`);
           }
+        } catch (error: any) {
+          console.error(`❌ Failed to process assignment for project ${project.projectName}:`, error);
         }
       }
     } catch (error) {

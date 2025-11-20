@@ -93,6 +93,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
       .populate('project_id', 'name client')
       .lean();
 
+    console.log(`📋 Found ${employeeProjects.length} projects for employee ${id}`);
+    console.log('📋 Employee projects:', JSON.stringify(employeeProjects, null, 2));
+
     // Transform employee projects to match frontend format
     const transformedProjects = employeeProjects.map(ep => ({
       id: ep._id.toString(),
@@ -108,11 +111,15 @@ router.get('/:id', authenticateToken, async (req, res) => {
       rate: ep.billing_rate
     }));
 
+    console.log('📋 Transformed projects:', JSON.stringify(transformedProjects, null, 2));
+
     // Add employeeProjects to employee object
     const employeeWithProjects = {
       ...employee.toObject(),
       employeeProjects: transformedProjects
     };
+
+    console.log('📋 Sending employee with projects:', employeeWithProjects.employeeProjects?.length || 0);
 
     res.status(200).json({
       employee: employeeWithProjects

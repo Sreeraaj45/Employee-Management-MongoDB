@@ -393,6 +393,83 @@ router.post('/:id/employees', ...authorize(['Admin', 'Lead', 'HR', 'Delivery Tea
 });
 
 /**
+ * PUT /api/projects/:id/employees/:employeeId
+ * Update employee assignment in project (Admin, Lead, HR, Delivery Team)
+ */
+router.put('/:id/employees/:employeeId', ...authorize(['Admin', 'Lead', 'HR', 'Delivery Team']), async (req, res) => {
+  try {
+    const { id, employeeId } = req.params;
+    const { allocation_percentage, start_date, end_date, role_in_project, po_number, billing_type, billing_rate } = req.body;
+
+    // Verify project exists
+    const project = await Project.findById(id);
+    if (!project) {
+      return res.status(404).json({
+        error: {
+          message: 'Project not found'
+        }
+      });
+    }
+
+    // Find and update the employee-project association
+    const employeeProject = await EmployeeProject.findOneAndUpdate(
+      {
+        employee_id: employeeId,
+        project_id: id
+      },
+      {
+        allocation_percentage,
+        start_date,
+        end_date: end_date || null,
+        role_in_project,
+        po_number,
+        billing_type,
+        billing_rate
+      },
+      { new: true, runValidators: true }
+    ).populate('employee_id');
+
+    if (!employeeProject) {
+      return res.status(404).json({
+        error: {
+          message: 'Employee is not assigned to this project'
+        }
+      });
+    }
+
+    res.status(200).json({
+      message: 'Employee assignment updated successfully',
+      employeeProject
+    });
+  } catch (error) {
+    console.error('Update employee assignment error:', error);
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        error: {
+          message: 'Invalid ID format'
+        }
+      });
+    }
+
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        error: {
+          message: 'Validation error',
+          details: error.message
+        }
+      });
+    }
+
+    res.status(500).json({
+      error: {
+        message: 'Failed to update employee assignment'
+      }
+    });
+  }
+});
+
+/**
  * DELETE /api/projects/:id/employees/:employeeId
  * Remove employee from project (Admin, Lead, HR, Delivery Team)
  */
