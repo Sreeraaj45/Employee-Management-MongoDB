@@ -204,7 +204,7 @@ export const EmployeeTable = ({
     const autoUpdateStatuses = async () => {
       if (!loading && allEmployees.length > 0) {
         // Auto-update status disabled - not yet migrated to MongoDB
-        console.log('⚠️ Auto-update employee status disabled - not yet migrated to MongoDB');
+        // console.log('⚠️ Auto-update employee status disabled - not yet migrated to MongoDB');
         
         // TODO: Re-enable when PO amendments are migrated to MongoDB
         // let updatedCount = 0;
@@ -511,7 +511,7 @@ export const EmployeeTable = ({
       case 'employeeId':
         return <span className="text-sm">{employee.employeeId}</span>;
       case 'name':
-        console.log('Employee DOS:', employee.name, employee.dateOfSeparation);
+        // console.log('Employee DOS:', employee.name, employee.dateOfSeparation);
         const isInactive = isEmployeeInactive(employee.dateOfSeparation);
         
         return (
@@ -785,6 +785,9 @@ export const EmployeeTable = ({
       case 'rate':
         return `₹${employee.rate}`;
       case 'ageing':
+        if (!employee.joiningDate) {
+          return '-';
+        }
         const employeeAgeing = calculateAgeing(employee.joiningDate);
         return (
           <span className={`inline-flex px-1.5 py-0.5 text-xs font-medium rounded-full ${employeeAgeing >= 90
@@ -800,14 +803,15 @@ export const EmployeeTable = ({
         const ctcInLPA = (employee.ctc / 100000).toFixed(2);
         return <span className="text-xs">₹{ctcInLPA} LPA</span>;
       case 'benchDays':
+        const benchDays = isNaN(employee.benchDays) ? 0 : employee.benchDays;
         return (
-          <span className={`inline-flex px-1.5 py-0.5 text-xs font-medium rounded-full ${employee.benchDays === 0
+          <span className={`inline-flex px-1.5 py-0.5 text-xs font-medium rounded-full ${benchDays === 0
               ? 'bg-green-100 text-green-800'
-              : employee.benchDays <= 30
+              : benchDays <= 30
                 ? 'bg-yellow-100 text-yellow-800'
                 : 'bg-red-100 text-red-800'
             }`}>
-            {employee.benchDays}
+            {benchDays}
           </span>
         );
       case 'phoneNumber':
@@ -920,8 +924,8 @@ export const EmployeeTable = ({
 
         emp.experienceBand,
         emp.rate,
-        emp.ageing,
-        emp.benchDays,
+        emp.joiningDate ? calculateAgeing(emp.joiningDate) : '-',
+        isNaN(emp.benchDays) ? 0 : emp.benchDays,
         emp.phoneNumber || '',
         emp.emergencyContact || '',
         emp.ctc,

@@ -9,27 +9,35 @@ interface PersonalInformationProps {
 
 export const PersonalInformation: React.FC<PersonalInformationProps> = ({ employee, onEdit }) => {
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
+    if (!dateString) return '-';
+    try {
+      return new Date(dateString).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    } catch (error) {
+      return '-';
+    }
   };
 
   const calculateExperience = () => {
-    if (!employee.joiningDate) return 'N/A';
-    const joiningDate = new Date(employee.joiningDate);
-    const today = new Date();
-    const diffTime = Math.abs(today.getTime() - joiningDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const years = Math.floor(diffDays / 365);
-    const months = Math.floor((diffDays % 365) / 30);
-    
-    if (years > 0) {
-      return `${years} year${years > 1 ? 's' : ''} ${months > 0 ? `${months} month${months > 1 ? 's' : ''}` : ''}`;
-    } else {
-      return `${months} month${months > 1 ? 's' : ''}`;
+    if (!employee.joiningDate) return '-';
+    try {
+      const joiningDate = new Date(employee.joiningDate);
+      const today = new Date();
+      const diffTime = Math.abs(today.getTime() - joiningDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const years = Math.floor(diffDays / 365);
+      const months = Math.floor((diffDays % 365) / 30);
+      
+      if (years > 0) {
+        return `${years} year${years > 1 ? 's' : ''} ${months > 0 ? `${months} month${months > 1 ? 's' : ''}` : ''}`;
+      } else {
+        return `${months} month${months > 1 ? 's' : ''}`;
+      }
+    } catch (error) {
+      return '-';
     }
   };
 

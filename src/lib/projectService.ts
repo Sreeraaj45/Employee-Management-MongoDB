@@ -43,7 +43,7 @@ export class ProjectService {
     try {
       const { ProjectApi } = await import('./api/projectApi');
       const projects = await ProjectApi.getAllProjects();
-      console.log(`📋 Raw projects from API:`, projects.slice(0, 2)); // Log first 2 projects
+      // console.log(`📋 Raw projects from API:`, projects.slice(0, 2)); 
       const mapped = projects.map(p => {
         const id = p._id || p.id || '';
         if (!id) {
@@ -61,7 +61,7 @@ export class ProjectService {
           po_number: p.po_number || null
         };
       });
-      console.log(`📋 Mapped projects:`, mapped.slice(0, 2)); // Log first 2 mapped projects
+      // console.log(`📋 Mapped projects:`, mapped.slice(0, 2)); 
       return mapped;
     } catch (error) {
       console.error('Error fetching projects:', error);

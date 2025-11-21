@@ -25,6 +25,18 @@ const formatDate = (dateString: string) => {
   });
 };
 
+const calculateAgeingFromJoiningDate = (joiningDate: string): number => {
+  if (!joiningDate) return 0;
+  try {
+    const joinDate = new Date(joiningDate);
+    const today = new Date();
+    const diffTime = Math.abs(today.getTime() - joinDate.getTime());
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  } catch (error) {
+    return 0;
+  }
+};
+
 const getAgeingColor = (ageing: number) => {
   if (ageing <= 30) return 'text-green-600';
   if (ageing <= 60) return 'text-yellow-600';
@@ -78,6 +90,13 @@ export const FinancialInformation: React.FC<FinancialInformationProps> = ({ empl
 
 // Performance Metrics - Visible to All
 export const PerformanceMetrics: React.FC<{ employee: Employee }> = ({ employee }) => {
+  // Calculate ageing from joining date if ageing is invalid or NaN
+  const displayAgeing = (isNaN(employee.ageing) || !employee.ageing) 
+    ? calculateAgeingFromJoiningDate(employee.joiningDate)
+    : employee.ageing;
+  
+  const displayBenchDays = isNaN(employee.benchDays) ? 0 : employee.benchDays;
+
   return (
     <div className="bg-white rounded-xl shadow-sm border p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -87,15 +106,19 @@ export const PerformanceMetrics: React.FC<{ employee: Employee }> = ({ employee 
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <span className="text-gray-600">Ageing</span>
-          <span className={`font-semibold ${getAgeingColor(employee.ageing)}`}>{employee.ageing} days</span>
+          <span className={`font-semibold ${getAgeingColor(displayAgeing)}`}>
+            {employee.joiningDate ? `${displayAgeing} days` : '-'}
+          </span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-gray-600">Bench Days</span>
-          <span className={`font-semibold ${getBenchDaysColor(employee.benchDays)}`}>{employee.benchDays} days</span>
+          <span className={`font-semibold ${getBenchDaysColor(displayBenchDays)}`}>
+            {displayBenchDays} days
+          </span>
         </div>
         <div className="flex justify-between items-center">
           <span className="text-gray-600">Experience Band</span>
-          <span className="font-semibold">{employee.experienceBand}</span>
+          <span className="font-semibold">{employee.experienceBand || '-'}</span>
         </div>
       </div>
     </div>

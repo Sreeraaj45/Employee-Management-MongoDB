@@ -126,7 +126,7 @@ function AppContent() {
   }, [user, refetch]);
 
   // Debug logging for state
-  console.log('🔍 AppContent render - user:', user, 'isLoading:', isLoading);
+  // console.log('🔍 AppContent render - user:', user, 'isLoading:', isLoading);
 
   // Public pages (no authentication required)
   if (currentPage === 'skill-mapping') {
@@ -144,7 +144,7 @@ function AppContent() {
   }
 
   if (isLoading) {
-    console.log('⏳ Showing loading screen');
+    // console.log('⏳ Showing loading screen');
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="text-center">

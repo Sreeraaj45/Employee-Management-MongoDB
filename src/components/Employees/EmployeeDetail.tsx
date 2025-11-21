@@ -334,13 +334,13 @@ export const EmployeeDetail = ({ employee, onEdit, onBack, onDelete }: EmployeeD
                 </div>
                 <div className="text-center">
                   <div className={`text-2xl font-bold ${getAgeingColor(calculateAgeing(currentEmployee.joiningDate))}`}>
-                    {calculateAgeing(currentEmployee.joiningDate)}
+                    {currentEmployee.joiningDate ? calculateAgeing(currentEmployee.joiningDate) : '-'}
                   </div>
                   <div className="text-sm text-gray-500">Ageing</div>
                 </div>
                 <div className="text-center">
-                  <div className={`text-2xl font-bold ${getBenchDaysColor(currentEmployee.benchDays)}`}>
-                    {currentEmployee.benchDays}
+                  <div className={`text-2xl font-bold ${getBenchDaysColor(currentEmployee.benchDays || 0)}`}>
+                    {isNaN(currentEmployee.benchDays) ? 0 : currentEmployee.benchDays}
                   </div>
                   <div className="text-sm text-gray-500">Bench Days</div>
                 </div>
@@ -424,8 +424,8 @@ export const EmployeeDetail = ({ employee, onEdit, onBack, onDelete }: EmployeeD
 
             {/* Right Column */}
             <div className="space-y-6">
-              {/* Financial Information - Only visible to Admin */}
-              {user?.role === 'Admin' && (
+              {/* Financial Information - Visible to Admin and Lead only */}
+              {(user?.role === 'Admin' || user?.role === 'Lead') && (
                 <FinancialInformation 
                   employee={currentEmployee} 
                   onEdit={() => handleEditSection('financial')} 
@@ -616,7 +616,7 @@ export const EmployeeDetail = ({ employee, onEdit, onBack, onDelete }: EmployeeD
         />
       )}
 
-      {activeEditForm === 'financial' && user?.role === 'Admin' && (
+      {activeEditForm === 'financial' && (user?.role === 'Admin' || user?.role === 'Lead') && (
         <FinancialInformationEditForm
           employee={currentEmployee}
           onSave={handleSaveEdit}
