@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
-import { Trash2, Edit2, Save, X, Loader, RefreshCw, Download, Columns, Search, AlertCircle } from 'lucide-react';
+import { Trash2, Edit2, Save, X, Loader, RefreshCw, Download, Columns, Search, AlertCircle, BarChart3, Users } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { skillMappingApi } from '../../lib/api/skillMappingApi';
 import EmployeeReview from './EmployeeReview';
+import Analytics from './Analytics';
 
 const RATING_LABELS: Record<number, string> = {
   1: 'No Knowledge', 2: 'Novice', 3: 'Proficient', 4: 'Expert', 5: 'Advanced'
@@ -35,6 +36,7 @@ interface EmployeeResponse {
 }
 
 export default function SkillResponses() {
+  const [activeTab, setActiveTab] = useState<'responses' | 'analytics'>('responses');
   const [responses, setResponses] = useState<EmployeeResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
@@ -412,13 +414,65 @@ export default function SkillResponses() {
     </div>
   );
 
-  if (responses.length === 0) return <p className="text-center text-gray-500 mt-12 text-lg">No responses found yet.</p>;
+  if (responses.length === 0 && activeTab === 'responses') return <p className="text-center text-gray-500 mt-12 text-lg">No responses found yet.</p>;
+
+  // If Analytics tab is active, render Analytics component
+  if (activeTab === 'analytics') {
+    return (
+      <div className="h-screen flex flex-col bg-slate-50">
+        {/* Navigation Bar */}
+        <div className="bg-white border-b border-gray-200 shadow-sm">
+          <div className="flex items-center gap-1 p-2">
+            <button
+              onClick={() => setActiveTab('responses')}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors font-medium"
+            >
+              <Users size={18} />
+              <span>Responses</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white shadow-sm font-medium"
+            >
+              <BarChart3 size={18} />
+              <span>Analytics</span>
+            </button>
+          </div>
+        </div>
+        {/* Analytics Content */}
+        <div className="flex-1 overflow-auto">
+          <Analytics />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="h-screen flex flex-col p-2 bg-slate-50" role="main">
-      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
-        {selectedSkill && selectedRatings.length > 0 && (`Showing ${filteredResponses.length} of ${responses.length} employees with ${selectedSkill} rated ${selectedRatings.sort((a, b) => a - b).join(', ')}`)}
+    <div className="h-screen flex flex-col bg-slate-50" role="main">
+      {/* Navigation Bar */}
+      <div className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="flex items-center gap-1 p-2">
+          <button
+            onClick={() => setActiveTab('responses')}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white shadow-sm font-medium"
+          >
+            <Users size={18} />
+            <span>Responses</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors font-medium"
+          >
+            <BarChart3 size={18} />
+            <span>Analytics</span>
+          </button>
+        </div>
       </div>
+
+      <div className="flex-1 flex flex-col p-2">
+        <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {selectedSkill && selectedRatings.length > 0 && (`Showing ${filteredResponses.length} of ${responses.length} employees with ${selectedSkill} rated ${selectedRatings.sort((a, b) => a - b).join(', ')}`)}
+        </div>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 bg-white rounded-l shadow-md border border-slate-100">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-bold text-gray-800">Total Responses: <span className="text-indigo-600">{responses.length}</span></h1>
@@ -715,15 +769,16 @@ export default function SkillResponses() {
           </div>
         </div>
       )}
-      <style>{`
-        .animate-fade-in-down { animation: fadeInDown 0.3s ease-out; }
-        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-slide-down { animation: slideDown 0.4s ease-out; }
-        @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); max-height: 0; } to { opacity: 1; transform: translateY(0); max-height: 1000px; } }
-        .animate-count-update { animation: countPulse 0.3s ease-in-out; }
-        @keyframes countPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); color: rgb(79, 70, 229); } }
-        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
-      `}</style>
+        <style>{`
+          .animate-fade-in-down { animation: fadeInDown 0.3s ease-out; }
+          @keyframes fadeInDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+          .animate-slide-down { animation: slideDown 0.4s ease-out; }
+          @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); max-height: 0; } to { opacity: 1; transform: translateY(0); max-height: 1000px; } }
+          .animate-count-update { animation: countPulse 0.3s ease-in-out; }
+          @keyframes countPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); color: rgb(79, 70, 229); } }
+          .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
+        `}</style>
+      </div>
     </div>
   );
 }
