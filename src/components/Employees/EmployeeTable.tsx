@@ -598,63 +598,24 @@ export const EmployeeTable = ({
         return employee.client || '-';
 
       case 'billabilityStatus':
-      // Check if employee has any active projects with active POs (both main PO and amendments)
-      const hasActivePO = employee.employeeProjects?.some(project => {
-        // Check if project has active PO amendments
-        const hasActiveAmendment = project.poAmendments?.some(amendment => amendment.is_active) || false;
-
-        // ✅ FIX: Also check if the main PO is active
-        const isMainPOActive = isPOActive(project.startDate, project.endDate || undefined);
-
-        return hasActiveAmendment || isMainPOActive;
-      });
-
-      // Support functions logic
-      const isSupportFunction = employee.modeOfManagement === 'SUPPORT_FUNCTIONS';
-      const isBillable = employee.billabilityStatus === 'Billable';
-      const isNA = employee.billabilityStatus === 'NA';
-
-      let displayStatus = employee.billabilityStatus;
-      let statusClass = '';
-
-      if (isSupportFunction) {
-        if (isNA) {
-          displayStatus = 'NA';
-          statusClass = 'bg-gray-100 text-gray-800';
-        } else if (isBillable) {
-          displayStatus = 'Billable';
-          statusClass = 'bg-green-100 text-green-800';
-        } else {
-          displayStatus = employee.billabilityStatus;
-          statusClass = 'bg-gray-100 text-gray-800';
-        }
-      } else {
-        // Regular employees - check if they have active PO (main or amendments)
-        if (!hasActivePO && employee.billabilityStatus === 'Billable') {
-          displayStatus = 'Bench';
-          statusClass = 'bg-yellow-100 text-yellow-800';
-          
-          // Note: Auto-update is handled by the useEffect at the component level
-          // Don't call hooks inside render functions
-          
-        } else {
-          statusClass = employee.billabilityStatus === 'Billable'
-            ? 'bg-green-100 text-green-800'
-            : employee.billabilityStatus === 'Bench'
-              ? 'bg-yellow-100 text-yellow-800'
-              : employee.billabilityStatus === 'Trainee'
-                ? 'bg-purple-100 text-purple-800'
-                : employee.billabilityStatus === 'Buffer'
-                  ? 'bg-orange-100 text-orange-800'
-                  : employee.billabilityStatus === 'ML'
-                    ? 'bg-indigo-100 text-indigo-800'
-                    : 'bg-gray-100 text-gray-800';
-        }
-      }
+      // Simply display the billability status from the database
+      const statusClass = employee.billabilityStatus === 'Billable'
+        ? 'bg-green-100 text-green-800'
+        : employee.billabilityStatus === 'Bench'
+          ? 'bg-yellow-100 text-yellow-800'
+          : employee.billabilityStatus === 'Trainee'
+            ? 'bg-purple-100 text-purple-800'
+            : employee.billabilityStatus === 'Buffer'
+              ? 'bg-orange-100 text-orange-800'
+              : employee.billabilityStatus === 'ML'
+                ? 'bg-indigo-100 text-indigo-800'
+                : employee.billabilityStatus === 'NA'
+                  ? 'bg-gray-100 text-gray-800'
+                  : 'bg-gray-100 text-gray-800';
 
       return (
         <span className={`inline-flex px-1.5 py-0.5 text-xs font-medium rounded-full ${statusClass}`}>
-          {displayStatus}
+          {employee.billabilityStatus}
         </span>
       );
       case 'billing':
