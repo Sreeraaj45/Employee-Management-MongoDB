@@ -1,6 +1,6 @@
 // import { supabase } from './supabase'; // Migrated to MongoDB API
 import { Employee, EmployeeProject, ConflictResolution, ConflictData } from '../types';
-import { NotificationService } from './notificationService';
+import { NotificationService } from './notificationServiceNew';
 import { POAmendment } from './projectService';
 
 export class EmployeeService {

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { AuthContext, useAuth, useAuthProvider } from './hooks/useAuth';
 import { useEmployees } from './hooks/useEmployees';
 import { LoginForm } from './components/Auth/LoginForm';
-import { AuthCallback } from './components/Auth/AuthCallback';
 import { Sidebar } from './components/Layout/Sidebar';
 import { DashboardCards } from './components/Dashboard/DashboardCards';
 import { EmployeeTable } from './components/Employees/EmployeeTable';
@@ -49,7 +48,6 @@ function AppContent() {
     '/upload': 'upload',
     '/settings': 'settings',
     '/user-management': 'user-management',
-    '/auth/callback': 'auth-callback',
     '/skill-mapping': 'skill-mapping',
     '/form': 'skill-mapping', // Alias for skill mapping
     '/thankyou': 'thankyou',
@@ -66,7 +64,6 @@ function AppContent() {
     'upload': '/upload',
     'settings': '/settings',
     'user-management': '/user-management',
-    'auth-callback': '/auth/callback',
     'skill-mapping': '/skill-mapping',
     'thankyou': '/thankyou',
     'skill-responses': '/skill-responses'
@@ -137,11 +134,7 @@ function AppContent() {
     return <ThankYouPage />;
   }
 
-  // Auth callback handling
-  if (currentPage === 'auth-callback') {
-    console.log('🔄 Rendering AuthCallback component');
-    return <AuthCallback />;
-  }
+  // Auth callback removed - using MongoDB authentication now
 
   if (isLoading) {
     // console.log('⏳ Showing loading screen');

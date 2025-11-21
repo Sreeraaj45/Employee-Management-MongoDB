@@ -1,6 +1,6 @@
 // import { supabase } from './supabase'; // Migrated to MongoDB API
 import { Employee } from '../types';
-import { NotificationService } from './notificationService';
+import { NotificationService } from './notificationServiceNew';
 
 export interface ProjectRecord {
   id: string;
@@ -807,36 +807,12 @@ export class ProjectService {
     }
   }
 
-  // Add this method to clean up existing default projects
-static async migrateDefaultProjectNames(): Promise<void> {
-  try {
-    // Get all projects with __CLIENT_ONLY__ prefix
-    const { data: oldDefaultProjects, error } = await supabase
-      .from('projects')
-      .select('id, name, client')
-      .like('name', '__CLIENT_ONLY__%');
-    
-    if (error) throw error;
-    
-    if (oldDefaultProjects && oldDefaultProjects.length > 0) {
-      for (const project of oldDefaultProjects) {
-        // Update the project name to just the client name
-        const { error: updateError } = await supabase
-          .from('projects')
-          .update({ name: project.client })
-          .eq('id', project.id);
-        
-        if (updateError) {
-          console.error(`Failed to update project ${project.id}:`, updateError);
-        } else {
-          console.log(`Updated project ${project.id} from "${project.name}" to "${project.client}"`);
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Failed to migrate default project names:', error);
+  // Migration method - no longer needed with MongoDB
+  /* OLD SUPABASE CODE
+  static async migrateDefaultProjectNames(): Promise<void> {
+    // Not needed with MongoDB
   }
-}
+  */
 
   static async createFirstProjectForClient(clientName: string, projectData: {
     name: string;
@@ -856,17 +832,7 @@ static async migrateDefaultProjectNames(): Promise<void> {
       client: clientName
     });
 
-    // Delete any default project for this client
-    const { error } = await supabase
-      .from('projects')
-      .delete()
-      .eq('client', clientName)
-      .like('name', `__CLIENT_ONLY__%`);
-
-    if (error) {
-      console.warn('Failed to delete default project:', error);
-      // Don't throw error here as the main project was created successfully
-    }
+    // No need to delete default projects with MongoDB
 
     return result;
   }
@@ -1037,168 +1003,64 @@ static async migrateDefaultProjectNames(): Promise<void> {
     }
   }
 
-  // ✅ ADD THE MISSING METHOD - PO Amendment methods
+  // PO Amendment methods - TODO: Migrate to MongoDB
+  /* OLD SUPABASE CODE - NOT YET MIGRATED
   static async getPOAmendmentsForProject(projectId: string): Promise<POAmendment[]> {
-    console.log('Fetching PO amendments for project:', projectId);
-    
-    const { data, error } = await supabase
-      .from('po_amendments')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('start_date', { ascending: false });
-    
-    if (error) {
-      console.error('Error fetching PO amendments:', error);
-      throw error;
-    }
-    
-    console.log('Fetched amendments:', data);
-    return (data || []) as POAmendment[];
+    // TODO: Implement with MongoDB API
+    return [];
   }
 
-
   static async getActivePOAmendment(projectId: string): Promise<POAmendment | null> {
-    const { data, error } = await supabase
-      .from('po_amendments')
-      .select('*')
-      .eq('project_id', projectId)
-      .eq('is_active', true)
-      .single();
-    
-    if (error && error.code !== 'PGRST116') throw error;
-    return data as POAmendment | null;
+    // TODO: Implement with MongoDB API
+    return null;
   }
 
   static async getActivePOAmendmentForProject(projectId: string): Promise<POAmendment | null> {
-  const now = new Date().toISOString().split('T')[0]; // Current date in YYYY-MM-DD
-  
-  const { data, error } = await supabase
-    .from('po_amendments')
-    .select('*')
-    .eq('project_id', projectId)
-    .lte('start_date', now) // Start date is today or in past
-    .or(`end_date.is.null,end_date.gte.${now}`) // No end date OR end date is in future
-    .order('start_date', { ascending: false })
-    .limit(1);
-  
-  if (error) {
-    console.error('Error fetching active PO amendment:', error);
-    throw error;
+    // TODO: Implement with MongoDB API
+    return null;
   }
-  
-  return data && data.length > 0 ? (data[0] as POAmendment) : null;
-}
 
-static async recalculateActivePOAmendment(projectId: string): Promise<POAmendment | null> {
-  // First deactivate all amendments for this project
-  const { error: deactivateError } = await supabase
-    .from('po_amendments')
-    .update({ is_active: false })
-    .eq('project_id', projectId);
-  
-  if (deactivateError) throw deactivateError;
-  
-  // Find and activate the appropriate amendment based on current date
-  const activeAmendment = await this.getActivePOAmendmentForProject(projectId);
-  
-  if (activeAmendment) {
-    const { error: activateError } = await supabase
-      .from('po_amendments')
-      .update({ is_active: true })
-      .eq('id', activeAmendment.id);
-    
-    if (activateError) throw activateError;
-    
-    // Return the updated amendment
-    return { ...activeAmendment, is_active: true };
+  static async recalculateActivePOAmendment(projectId: string): Promise<POAmendment | null> {
+    // TODO: Implement with MongoDB API
+    return null;
   }
-  
-  return null;
-}
 
-static async createPOAmendment(projectId: string, poData: {
-  po_number: string;
-  start_date: string;
-  end_date?: string | null;
-}): Promise<{ id: string }> {
-  const { data, error } = await supabase
-    .from('po_amendments')
-    .insert({
-      project_id: projectId,
-      po_number: poData.po_number,
-      start_date: poData.start_date,
-      end_date: poData.end_date || null,
-      is_active: false // Start as inactive, will be recalculated
-    })
-    .select('id')
-    .single();
-  
-  if (error) throw error;
-  
-  // Recalculate active amendment after creating new one
-  await this.recalculateActivePOAmendment(projectId);
-  
-  return { id: (data as any).id };
-}
-
-static async updatePOAmendment(amendmentId: string, updates: {
-  po_number: string;
-  start_date: string;
-  end_date?: string | null;
-}): Promise<void> {
-  const { error } = await supabase
-    .from('po_amendments')
-    .update(updates)
-    .eq('id', amendmentId);
-  
-  if (error) throw error;
-  
-  // Get project ID and recalculate active amendment
-  const { data: amendment } = await supabase
-    .from('po_amendments')
-    .select('project_id')
-    .eq('id', amendmentId)
-    .single();
-  
-  if (amendment) {
-    await this.recalculateActivePOAmendment(amendment.project_id);
+  static async createPOAmendment(projectId: string, poData: {
+    po_number: string;
+    start_date: string;
+    end_date?: string | null;
+  }): Promise<{ id: string }> {
+    // TODO: Implement with MongoDB API
+    throw new Error('PO Amendments not yet migrated to MongoDB');
   }
-}
+
+  static async updatePOAmendment(amendmentId: string, updates: {
+    po_number: string;
+    start_date: string;
+    end_date?: string | null;
+  }): Promise<void> {
+    // TODO: Implement with MongoDB API
+    throw new Error('PO Amendments not yet migrated to MongoDB');
+  }
 
   static async deletePOAmendment(amendmentId: string): Promise<void> {
-    const { error } = await supabase
-      .from('po_amendments')
-      .delete()
-      .eq('id', amendmentId);
-    
-    if (error) throw error;
+    // TODO: Implement with MongoDB API
+    throw new Error('PO Amendments not yet migrated to MongoDB');
   }
 
   static async activatePOAmendment(amendmentId: string): Promise<void> {
-    const { error } = await supabase
-      .from('po_amendments')
-      .update({ is_active: true })
-      .eq('id', amendmentId);
-    
-    if (error) throw error;
+    // TODO: Implement with MongoDB API
+    throw new Error('PO Amendments not yet migrated to MongoDB');
   }
 
   static async deactivatePOAmendment(amendmentId: string): Promise<void> {
-    const { error } = await supabase
-      .from('po_amendments')
-      .update({ is_active: false })
-      .eq('id', amendmentId);
-    
-    if (error) throw error;
+    // TODO: Implement with MongoDB API
+    throw new Error('PO Amendments not yet migrated to MongoDB');
   }
 
   static async deactivateOldPOAmendments(projectId: string): Promise<void> {
-    const { error } = await supabase
-      .from('po_amendments')
-      .update({ is_active: false })
-      .eq('project_id', projectId)
-      .eq('is_active', true);
-    
-    if (error) throw error;
+    // TODO: Implement with MongoDB API
+    throw new Error('PO Amendments not yet migrated to MongoDB');
   }
+  */
 }
