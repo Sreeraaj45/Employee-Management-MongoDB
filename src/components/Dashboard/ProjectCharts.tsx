@@ -23,9 +23,9 @@ export const ProjectDistributionChart = ({ metrics }: ProjectDistributionChartPr
     .sort((a, b) => b.value - a.value);
 
   // Debug logging
-  console.log('ProjectChart - metrics:', metrics);
-  console.log('ProjectChart - projectDistribution:', metrics.projectDistribution);
-  console.log('ProjectChart - projectData:', projectData);
+  // console.log('ProjectChart - metrics:', metrics);
+  // console.log('ProjectChart - projectDistribution:', metrics.projectDistribution);
+  // console.log('ProjectChart - projectData:', projectData);
 
   useEffect(() => {
     if (!chartRef.current || projectData.length === 0 || loading) return;

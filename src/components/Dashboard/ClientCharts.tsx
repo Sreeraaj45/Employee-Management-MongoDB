@@ -23,9 +23,9 @@ export const ClientDistributionChart = ({ metrics }: ClientDistributionChartProp
     .sort((a, b) => b.value - a.value);
 
   // Debug logging
-  console.log('ClientChart - metrics:', metrics);
-  console.log('ClientChart - clientDistribution:', metrics.clientDistribution);
-  console.log('ClientChart - clientData:', clientData);
+  // console.log('ClientChart - metrics:', metrics);
+  // console.log('ClientChart - clientDistribution:', metrics.clientDistribution);
+  // console.log('ClientChart - clientData:', clientData);
 
   useEffect(() => {
     if (!chartRef.current || clientData.length === 0 || loading) return;

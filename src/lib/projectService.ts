@@ -402,8 +402,8 @@ export class ProjectService {
       const { ProjectApi } = await import('./api/projectApi');
       const employees = await ProjectApi.getProjectEmployees(projectId);
       
-      console.log(`📋 Fetched ${employees.length} employees for project ${projectId}`);
-      console.log('Raw employee data:', employees);
+      // console.log(`📋 Fetched ${employees.length} employees for project ${projectId}`);
+      // console.log('Raw employee data:', employees);
       
       // Map to Employee format
       return employees.map((emp: any) => ({
