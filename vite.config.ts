@@ -39,8 +39,8 @@ export default defineConfig({
           exceljs: ['exceljs'],
           // Vendor chunk for React and core libraries
           vendor: ['react', 'react-dom', 'react-router-dom'],
-          // Chart libraries
-          charts: ['chart.js', '@amcharts/amcharts4', '@amcharts/amcharts5'],
+          // Chart libraries (amcharts4 excluded due to module resolution issues)
+          charts: ['chart.js', '@amcharts/amcharts5'],
         },
         // Asset file naming
         assetFileNames: (assetInfo) => {

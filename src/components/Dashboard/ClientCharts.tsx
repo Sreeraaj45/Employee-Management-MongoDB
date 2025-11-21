@@ -62,8 +62,8 @@ export const ClientDistributionChart = ({ metrics }: ClientDistributionChartProp
 
     xRenderer.labels.template.setAll({
       rotation: 40,
-      centerY: am5.p10,
-      centerX: am5.p0,
+      centerY: am5.p50,
+      centerX: am5.p100,
       paddingRight: 15,
       fontSize: 12,
       fontWeight: "500"
