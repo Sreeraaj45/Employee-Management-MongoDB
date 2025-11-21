@@ -4,7 +4,6 @@
  */
 
 import { useState, useEffect, createContext, useContext } from 'react';
-import profileImg from '../assets/profile.jpg';
 import { User } from '../types';
 import { AuthService } from '../lib/authService';
 
@@ -135,7 +134,7 @@ export const useAuthProvider = () => {
         // Add avatar if not present
         const userWithAvatar = {
           ...result.user,
-          avatar: result.user.avatar || profileImg
+          avatar: result.user.avatar || ''
         };
         
         setUser(userWithAvatar);

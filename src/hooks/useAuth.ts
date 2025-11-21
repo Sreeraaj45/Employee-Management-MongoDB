@@ -1,5 +1,4 @@
 import { useState, useEffect, createContext, useContext } from 'react';
-import profileImg from '../assets/profile.jpg';
 import { User } from '../types';
 
 interface AuthContextType {
@@ -136,7 +135,7 @@ export const useAuthProvider = () => {
           email: data.user.email,
           name: data.user.name,
           role: data.user.role,
-          avatar: data.user.avatar || profileImg,
+          avatar: data.user.avatar || '',
         };
         
         setUser(userProfile);

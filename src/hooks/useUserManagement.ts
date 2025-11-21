@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User } from '../types';
 import { UserApi } from '../lib/api/userApi';
-import localAvatar from '../assets/profile.jpg';
 
 export const useUserManagement = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -16,7 +15,7 @@ export const useUserManagement = () => {
         email: profile.email,
         name: profile.name,
         role: profile.role as 'Admin' | 'Lead' | 'HR',
-        avatar: profile.avatar || localAvatar,
+        avatar: profile.avatar || '',
       }));
 
       setUsers(mappedUsers);
