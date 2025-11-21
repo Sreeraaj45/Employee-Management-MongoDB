@@ -23,9 +23,10 @@ import {
 } from 'lucide-react';
 import { ExcelParser } from '../../lib/excelParser';
 import { EmployeeService } from '../../lib/employeeService';
+import { useAuth } from '../../hooks/useAuth';
 import { PersonalInformation } from './PersonalInformation';
 import { ProfessionalInformation } from './ProfessionalInformation';
-import { FinancialInformation } from './FinancialInformation';
+import { FinancialInformation, PerformanceMetrics, SystemInformation } from './FinancialInformation';
 import { Skills } from './Skills';
 import { Remarks } from './Remarks';
 import { PersonalInformationEditForm } from './PersonalInformationEditForm';
@@ -54,6 +55,7 @@ interface TimelineEvent {
 }
 
 export const EmployeeDetail = ({ employee, onEdit, onBack, onDelete }: EmployeeDetailProps) => {
+  const { user } = useAuth();
   // Add these state variables with other state declarations
   const [showAmendPODialog, setShowAmendPODialog] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -422,10 +424,19 @@ export const EmployeeDetail = ({ employee, onEdit, onBack, onDelete }: EmployeeD
 
             {/* Right Column */}
             <div className="space-y-6">
-              <FinancialInformation 
-                employee={currentEmployee} 
-                onEdit={() => handleEditSection('financial')} 
-              />
+              {/* Financial Information - Only visible to Admin */}
+              {user?.role === 'Admin' && (
+                <FinancialInformation 
+                  employee={currentEmployee} 
+                  onEdit={() => handleEditSection('financial')} 
+                />
+              )}
+              
+              {/* Performance Metrics - Visible to All */}
+              <PerformanceMetrics employee={currentEmployee} />
+              
+              {/* System Information - Visible to All */}
+              <SystemInformation employee={currentEmployee} />
             </div>
           </div>
         )}
@@ -605,7 +616,7 @@ export const EmployeeDetail = ({ employee, onEdit, onBack, onDelete }: EmployeeD
         />
       )}
 
-      {activeEditForm === 'financial' && (
+      {activeEditForm === 'financial' && user?.role === 'Admin' && (
         <FinancialInformationEditForm
           employee={currentEmployee}
           onSave={handleSaveEdit}

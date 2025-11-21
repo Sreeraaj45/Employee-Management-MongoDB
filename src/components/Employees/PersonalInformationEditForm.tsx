@@ -14,12 +14,23 @@ export const PersonalInformationEditForm: React.FC<PersonalInformationEditFormPr
   onSave, 
   onCancel 
 }) => {
+  const formatDateForInput = (dateString: string | undefined | null): string => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+      return date.toISOString().split('T')[0];
+    } catch {
+      return '';
+    }
+  };
+
   const [formData, setFormData] = useState({
     email: employee.email,
     phoneNumber: employee.phoneNumber || '',
     emergencyContact: employee.emergencyContact || '',
     location: employee.location || '',
-    joiningDate: employee.joiningDate || '',
+    joiningDate: formatDateForInput(employee.joiningDate),
   });
 
   const [isLoading, setIsLoading] = useState(false);
