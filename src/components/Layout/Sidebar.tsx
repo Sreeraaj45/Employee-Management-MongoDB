@@ -29,6 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, onC
       { id: 'projects', label: 'Projects', icon: Calendar, roles: ['Admin', 'Lead', 'HR'] },
       { id: 'financial', label: 'Financial', icon: DollarSign, roles: ['Admin', 'Lead'] },
       { id: 'reports', label: 'Reports', icon: FileText, roles: ['Admin', 'Lead', 'HR'] },
+      { id: 'skill-responses', label: 'Skill Responses', icon: FileText, roles: ['Admin', 'Lead', 'HR'] },
       { id: 'upload', label: 'Bulk Upload', icon: Upload, roles: ['Admin'] },
       { id: 'user-management', label: 'User Management', icon: Users, roles: ['Admin'] },
       { id: 'settings', label: 'Settings', icon: Settings, roles: ['Admin', 'Lead', 'HR'] },

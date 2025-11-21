@@ -53,6 +53,7 @@ import userRoutes from './routes/userRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import dropdownRoutes from './routes/dropdownRoutes.js';
 import financialRoutes from './routes/financialRoutes.js';
+import skillMappingRoutes from './routes/skillMappingRoutes.js';
 
 // API Routes
 app.get('/api/health', (req, res) => {
@@ -85,6 +86,9 @@ app.use('/api/dropdowns', dropdownRoutes);
 
 // Financial routes
 app.use('/api/financial', financialRoutes);
+
+// Public skill mapping routes (no authentication required)
+app.use('/api/public', skillMappingRoutes);
 
 // Serve static files from the React app in production
 if (config.nodeEnv === 'production') {

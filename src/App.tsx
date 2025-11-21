@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { AuthContext, useAuth, useAuthProvider } from './hooks/useAuth';
 import { useEmployees } from './hooks/useEmployees';
 import { LoginForm } from './components/Auth/LoginForm';
-import { AuthCallback } from './components/Auth/AuthCallback'; // ← ADD THIS IMPORT
+import { AuthCallback } from './components/Auth/AuthCallback';
 import { Sidebar } from './components/Layout/Sidebar';
 import { DashboardCards } from './components/Dashboard/DashboardCards';
 import { EmployeeTable } from './components/Employees/EmployeeTable';
@@ -13,11 +13,12 @@ import { FinancialDashboard } from './components/Financial/FinancialDashboard';
 import { ReportsPage } from './components/Reports/ReportsPage';
 import { UserManagement } from './components/Settings/UserManagement';
 import { PasswordChange } from './components/Settings/PasswordChange';
+import SkillMappingForm from './components/SkillMapping/SkillMappingForm';
+import ThankYouPage from './components/SkillMapping/ThankYouPage';
+import SkillResponses from './components/SkillMapping/SkillResponses';
 import { Employee } from './types';
 import Projects from './components/Projects/Projects';
-// import { POScheduler } from './lib/poScheduler'; // Disabled - not yet migrated to MongoDB
 import { Menu } from 'lucide-react';
-import { ProjectService } from './lib/projectService';
 export default App;
 
 function AppContent() {
@@ -38,7 +39,7 @@ function AppContent() {
   const [showEmployeeDetail, setShowEmployeeDetail] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // URL to page mapping - ADD AUTH CALLBACK ROUTE
+  // URL to page mapping
   const urlToPageMap: { [key: string]: string } = {
     '/dashboard': 'dashboard',
     '/employees': 'employees',
@@ -48,7 +49,11 @@ function AppContent() {
     '/upload': 'upload',
     '/settings': 'settings',
     '/user-management': 'user-management',
-    '/auth/callback': 'auth-callback' // ← ADD THIS
+    '/auth/callback': 'auth-callback',
+    '/skill-mapping': 'skill-mapping',
+    '/form': 'skill-mapping', // Alias for skill mapping
+    '/thankyou': 'thankyou',
+    '/skill-responses': 'skill-responses'
   };
 
   // Page to URL mapping
@@ -61,7 +66,10 @@ function AppContent() {
     'upload': '/upload',
     'settings': '/settings',
     'user-management': '/user-management',
-    'auth-callback': '/auth/callback' // ← ADD THIS
+    'auth-callback': '/auth/callback',
+    'skill-mapping': '/skill-mapping',
+    'thankyou': '/thankyou',
+    'skill-responses': '/skill-responses'
   };
 
   // Get current page from URL
@@ -120,7 +128,16 @@ function AppContent() {
   // Debug logging for state
   console.log('🔍 AppContent render - user:', user, 'isLoading:', isLoading);
 
-  // ✅ ADD AUTH CALLBACK HANDLING
+  // Public pages (no authentication required)
+  if (currentPage === 'skill-mapping') {
+    return <SkillMappingForm />;
+  }
+
+  if (currentPage === 'thankyou') {
+    return <ThankYouPage />;
+  }
+
+  // Auth callback handling
   if (currentPage === 'auth-callback') {
     console.log('🔄 Rendering AuthCallback component');
     return <AuthCallback />;
@@ -272,6 +289,9 @@ function AppContent() {
             <PasswordChange />
           </div>
         );
+      
+      case 'skill-responses':
+        return <SkillResponses />;
       
       default:
         return (

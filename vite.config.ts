@@ -75,6 +75,13 @@ export default defineConfig({
     // Automatically open browser
     open: false,
     
+    // HMR configuration to fix websocket issues
+    hmr: {
+      protocol: 'ws',
+      host: 'localhost',
+      port: 5173,
+    },
+    
     // Proxy API requests to Express backend in development
     // This allows frontend (port 5173) to call backend (port 3001) without CORS issues
     proxy: {
