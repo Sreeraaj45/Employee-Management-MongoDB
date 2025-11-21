@@ -319,7 +319,7 @@ export default function SkillMappingForm() {
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Employee ID (Ex: IET1234 or IET - 1234)"
+                  placeholder="Employee ID (Ex: IET1234)"
                   value={formData.employeeId}
                   required
                   onChange={e => {

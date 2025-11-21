@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
-import { Trash2, Edit2, Save, X, Loader, RefreshCw, Download, Columns, Search, AlertCircle, BarChart3, Users } from 'lucide-react';
+import { Trash2, Edit2, Save, X, Loader, RefreshCw, Download, Columns, Search, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { skillMappingApi } from '../../lib/api/skillMappingApi';
 import EmployeeReview from './EmployeeReview';
 import Analytics from './Analytics';
+import SkillMappingNav from './SkillMappingNav';
 
 const RATING_LABELS: Record<number, string> = {
   1: 'No Knowledge', 2: 'Novice', 3: 'Proficient', 4: 'Expert', 5: 'Advanced'
@@ -420,26 +421,7 @@ export default function SkillResponses() {
   if (activeTab === 'analytics') {
     return (
       <div className="h-screen flex flex-col bg-slate-50">
-        {/* Navigation Bar */}
-        <div className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="flex items-center gap-1 p-2">
-            <button
-              onClick={() => setActiveTab('responses')}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors font-medium"
-            >
-              <Users size={18} />
-              <span>Responses</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white shadow-sm font-medium"
-            >
-              <BarChart3 size={18} />
-              <span>Analytics</span>
-            </button>
-          </div>
-        </div>
-        {/* Analytics Content */}
+        <SkillMappingNav activeTab={activeTab} onTabChange={setActiveTab} />
         <div className="flex-1 overflow-auto">
           <Analytics />
         </div>
@@ -449,27 +431,9 @@ export default function SkillResponses() {
 
   return (
     <div className="h-screen flex flex-col bg-slate-50" role="main">
-      {/* Navigation Bar */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="flex items-center gap-1 p-2">
-          <button
-            onClick={() => setActiveTab('responses')}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white shadow-sm font-medium"
-          >
-            <Users size={18} />
-            <span>Responses</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('analytics')}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors font-medium"
-          >
-            <BarChart3 size={18} />
-            <span>Analytics</span>
-          </button>
-        </div>
-      </div>
+      <SkillMappingNav activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <div className="flex-1 flex flex-col p-2">
+      <div className="flex-1 flex flex-col p-2 overflow-hidden">
         <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
           {selectedSkill && selectedRatings.length > 0 && (`Showing ${filteredResponses.length} of ${responses.length} employees with ${selectedSkill} rated ${selectedRatings.sort((a, b) => a - b).join(', ')}`)}
         </div>
@@ -591,9 +555,9 @@ export default function SkillResponses() {
           </div>
         </div>
       )}
-      <div className="bg-white rounded-l shadow-2xl overflow-hidden border border-gray-200 flex-1 relative">
-        <div className="overflow-auto h-full overscroll-contain">
-          <table className="min-w-full text-sm border-separate border-spacing-0 table-fixed">
+      <div className="bg-white rounded-l shadow-2xl overflow-hidden border border-gray-200 flex-1 relative flex flex-col">
+        <div className="overflow-auto flex-1 overscroll-contain">
+          <table className="min-w-full text-sm border-separate border-spacing-0 table-fixed relative">
             <thead>
               <tr>
                 {headerOrder.map((hdr) => {
