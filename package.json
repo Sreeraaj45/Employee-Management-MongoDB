@@ -10,7 +10,7 @@
     "build": "vite build",
     "build:full": "npm run build && npm run start",
     "start": "node server/server.js",
-    "start:prod": "NODE_ENV=production node server/server.js",
+    "start:prod": "set NODE_ENV=production && node server/server.js",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest --run",

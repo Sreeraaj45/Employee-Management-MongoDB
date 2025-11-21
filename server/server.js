@@ -94,11 +94,6 @@ app.use('/api/public', skillMappingRoutes);
 if (config.nodeEnv === 'production') {
   const distPath = path.join(__dirname, '../dist');
   app.use(express.static(distPath));
-
-  // Handle React routing, return all requests to React app
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
-  });
 }
 
 // 404 handler for unmatched API routes (must be after all route definitions)
@@ -108,6 +103,14 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// Handle React routing in production - must be after API 404 handler
+if (config.nodeEnv === 'production') {
+  const distPath = path.join(__dirname, '../dist');
+  app.use((req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
 
 // Global error handling middleware (must be last)
 app.use(errorHandler);
