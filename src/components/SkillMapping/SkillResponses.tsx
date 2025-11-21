@@ -95,8 +95,18 @@ export default function SkillResponses() {
     setError(null);
     try {
       const data = await skillMappingApi.getResponses();
-      if (Array.isArray(data)) setResponses(data);
-      else setResponses([]);
+      if (Array.isArray(data)) {
+        setResponses(data);
+        
+        // Check if we should auto-open an employee review
+        const openReviewId = sessionStorage.getItem('openEmployeeReview');
+        if (openReviewId) {
+          sessionStorage.removeItem('openEmployeeReview');
+          setSelectedEmployeeId(openReviewId);
+        }
+      } else {
+        setResponses([]);
+      }
     } catch (err: any) {
       setError(`Failed to load responses: ${err?.message || 'Server error'}`);
       setResponses([]);

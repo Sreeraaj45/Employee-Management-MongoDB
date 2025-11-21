@@ -88,11 +88,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, onC
       {/* Footer */}
       <div className="p-4 border-t border-gray-200 bg-gray-50">
         <div className="flex items-center space-x-3 mb-3 ml-2">
-          <img
-            src={user?.avatar}
-            alt={user?.name}
-            className="w-10 h-10 rounded-full flex-shrink-0 border-2 border-white shadow-sm"
-          />
+          <div className="w-10 h-10 rounded-full flex-shrink-0 border-2 border-white shadow-sm bg-gradient-to-br from-slate-400 to-blue-400 flex items-center justify-center">
+            <span className="text-white font-bold text-base">
+              {user?.name?.charAt(0).toUpperCase() || 'U'}
+            </span>
+          </div>
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-gray-900 text-sm truncate">{user?.name}</p>
             <p className="text-xs text-gray-500 truncate">{user?.role}</p>

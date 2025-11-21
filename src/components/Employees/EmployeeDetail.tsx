@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   ArrowLeft, 
   Trash2,
@@ -18,7 +18,8 @@ import {
   Award,
   Briefcase,
   Target,
-  Activity
+  Activity,
+  X
 } from 'lucide-react';
 import { ExcelParser } from '../../lib/excelParser';
 import { EmployeeService } from '../../lib/employeeService';
@@ -66,7 +67,7 @@ export const EmployeeDetail = ({ employee, onEdit, onBack, onDelete }: EmployeeD
 };
 
   // Rest of your existing code...
-  const [activeTab, setActiveTab] = useState<'overview' | 'timeline' | 'projects' | 'documents'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'timeline' | 'projects' | 'documents' | 'skills'>('overview');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [currentEmployee, setCurrentEmployee] = useState(employee);
   const [activeEditForm, setActiveEditForm] = useState<string | null>(null);
@@ -235,6 +236,7 @@ export const EmployeeDetail = ({ employee, onEdit, onBack, onDelete }: EmployeeD
     { id: 'timeline', label: 'Timeline', icon: <Activity className="h-4 w-4" /> },
     { id: 'projects', label: 'Projects', icon: <Briefcase className="h-4 w-4" /> },
     { id: 'documents', label: 'Documents', icon: <FileText className="h-4 w-4" /> },
+    { id: 'skills', label: 'Skills', icon: <Award className="h-4 w-4" /> },
   ];
 
   // Helper function to check if employee is inactive based on DOS
@@ -353,7 +355,7 @@ export const EmployeeDetail = ({ employee, onEdit, onBack, onDelete }: EmployeeD
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as 'overview' | 'timeline' | 'projects' | 'documents')}
+                onClick={() => setActiveTab(tab.id as 'overview' | 'timeline' | 'projects' | 'documents' | 'skills')}
                 className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === tab.id
                     ? 'border-blue-500 text-blue-600'
@@ -580,6 +582,10 @@ export const EmployeeDetail = ({ employee, onEdit, onBack, onDelete }: EmployeeD
             </div>
           </div>
         )}
+
+        {activeTab === 'skills' && (
+          <EmployeeSkillsTab employeeId={currentEmployee.employeeId} />
+        )}
       </div>
 
       {/* Edit Forms */}
@@ -637,6 +643,127 @@ export const EmployeeDetail = ({ employee, onEdit, onBack, onDelete }: EmployeeD
           }}
         />
       )}
+    </div>
+  );
+};
+
+// Employee Skills Tab Component
+interface EmployeeSkillsTabProps {
+  employeeId: string;
+}
+
+const EmployeeSkillsTab: React.FC<EmployeeSkillsTabProps> = ({ employeeId }) => {
+  const [skillData, setSkillData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSkillData = async () => {
+      setLoading(true);
+      try {
+        const { skillMappingApi } = await import('../../lib/api/skillMappingApi');
+        const data = await skillMappingApi.getResponses();
+        
+        if (!Array.isArray(data)) {
+          setSkillData(null);
+          return;
+        }
+        
+        const normalizedId = employeeId.replace(/\s+/g, '').toUpperCase();
+        const employee = data.find((emp: any) => {
+          const empId = emp.employee_id?.replace(/\s+/g, '').toUpperCase();
+          return empId === normalizedId;
+        });
+        
+        setSkillData(employee || null);
+      } catch (err) {
+        console.error('Error fetching skill data:', err);
+        setSkillData(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSkillData();
+  }, [employeeId]);
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white rounded-xl shadow-sm border p-8">
+          <div className="flex items-center justify-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <span className="ml-3 text-gray-600">Loading skills data...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const hasManagerReview = skillData?.manager_ratings && skillData.manager_ratings.length > 0;
+  const skillCount = skillData?.skill_ratings?.length || 0;
+
+  return (
+    <div className="max-w-4xl mx-auto">
+      <div className="bg-white rounded-xl shadow-sm border p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+          <Award className="h-5 w-5 mr-2" />
+          Skills & Competencies
+        </h3>
+        
+        {!skillData ? (
+          <div className="text-center py-8">
+            <Award className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 mb-2">No skill mapping data available</p>
+            <p className="text-sm text-gray-400">This employee hasn't completed the skill mapping form yet</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Summary */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-4 border border-indigo-100">
+                <div className="text-2xl font-bold text-indigo-600">{skillCount}</div>
+                <div className="text-sm text-gray-600">Skills Rated</div>
+              </div>
+              <div className={`bg-gradient-to-br rounded-lg p-4 border ${hasManagerReview ? 'from-green-50 to-emerald-50 border-green-100' : 'from-red-50 to-rose-50 border-red-100'}`}>
+                <div className={`text-2xl font-bold flex items-center justify-center ${hasManagerReview ? 'text-green-600' : 'text-red-600'}`}>
+                  {hasManagerReview ? '✓' : <X className="h-6 w-6" />}
+                </div>
+                <div className="text-sm text-gray-600">
+                  {hasManagerReview ? 'Manager Reviewed' : 'Not Reviewed'}
+                </div>
+              </div>
+            </div>
+
+            {/* Submitted Date */}
+            {skillData.timestamp && (
+              <div className="text-sm text-gray-500">
+                Submitted on: {new Date(skillData.timestamp).toLocaleDateString('en-US', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric' 
+                })}
+              </div>
+            )}
+
+            {/* View Details Button */}
+            <div className="pt-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  // Store the employee response ID to open the review directly
+                  sessionStorage.setItem('openEmployeeReview', skillData._id);
+                  // Navigate to skill responses page which will auto-open the review
+                  window.location.href = '/skill-responses';
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-br from-indigo-50 to-purple-50 text-indigo-700 border-2 border-indigo-200 rounded-lg hover:from-indigo-100 hover:to-purple-100 hover:border-indigo-300 transition-all font-medium"
+              >
+                <Award className="h-5 w-5" />
+                View Full Skill Details
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
